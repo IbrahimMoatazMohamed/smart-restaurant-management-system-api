@@ -1,0 +1,73 @@
+import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsString,
+  IsArray,
+  IsEnum,
+  Min,
+  ArrayMinSize,
+  IsUrl,
+  IsOptional,
+} from 'class-validator';
+import { MealStatus } from '../entities/meal.entity';
+
+export class CreateMealDto {
+  @ApiProperty({
+    description: 'The name of the meal',
+    example: 'Deluxe Burger Combo',
+  })
+  @IsNotEmpty()
+  @IsString()
+  name: string;
+
+  @ApiProperty({ description: 'The description of the meal' })
+  @IsNotEmpty()
+  @IsString()
+  description: string;
+
+  @ApiProperty({
+    description: 'The price of the meal',
+    example: 15.99,
+  })
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(0)
+  price: number;
+
+  @ApiProperty({
+    description: 'The photo of the meal',
+    example: 'meal.jpg',
+  })
+  @IsNotEmpty()
+  @IsUrl()
+  photo: string;
+
+  @ApiProperty({
+    description: 'The status of the meal',
+    enum: MealStatus,
+    example: MealStatus.AVAILABLE,
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(MealStatus)
+  status?: MealStatus;
+
+  @ApiProperty({
+    description: 'The category ID this meal belongs to',
+    example: 1,
+  })
+  @IsNotEmpty()
+  @IsNumber()
+  categoryId: number;
+
+  @ApiProperty({
+    description: 'The IDs of items included in this meal',
+    example: [1, 2, 3],
+    type: [Number],
+  })
+  @IsNotEmpty()
+  @IsArray()
+  @ArrayMinSize(1)
+  itemIds: number[];
+}

@@ -1,0 +1,179 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  HttpStatus,
+  HttpCode,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiNotFoundResponse,
+  ApiInternalServerErrorResponse,
+  ApiBadRequestResponse,
+} from '@nestjs/swagger';
+import { OrdersService } from './orders.service';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { UpdateOrderDto } from './dto/update-order.dto';
+import { CustomLoggerService } from '../../logger/logger.service';
+import { OrderResponseDto } from './dto/order-response.dto';
+
+/**
+ * Orders Controller
+ *
+ * Handles order-related operations
+ */
+@ApiTags('orders')
+@Controller('orders')
+export class OrdersController {
+  /**
+   * Constructor
+   *
+   * Initializes the orders service and custom logger
+   */
+  constructor(
+    private readonly ordersService: OrdersService,
+    private readonly logger: CustomLoggerService,
+  ) {
+    this.logger.setContext('OrdersController');
+  }
+
+  /**
+   * Create a new order
+   *
+   * @param createOrderDto Order creation data
+   * @returns Created order
+   */
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create a new order' })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Order has been successfully created.',
+    type: OrderResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid input data, user not found, or meals not found.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to create order.',
+  })
+  async create(
+    @Body() createOrderDto: CreateOrderDto,
+  ): Promise<OrderResponseDto> {
+    this.logger.log(`Creating new order for user ID: ${createOrderDto.userId}`);
+
+    return await this.ordersService.create(createOrderDto);
+  }
+
+  /**
+   * Get all orders
+   *
+   * @returns List of all orders
+   */
+  @Get()
+  @ApiOperation({ summary: 'Get all orders' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'List of all orders.',
+    type: [OrderResponseDto],
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to retrieve orders.',
+  })
+  async findAll(): Promise<OrderResponseDto[]> {
+    this.logger.log('Retrieving all orders');
+
+    return await this.ordersService.findAll();
+  }
+
+  /**
+   * Get an order by ID
+   *
+   * @param id Order ID
+   * @returns Order
+   */
+  @Get(':id')
+  @ApiOperation({ summary: 'Get an order by ID' })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Order found.',
+    type: OrderResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Order not found.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to retrieve order.',
+  })
+  async findOne(@Param('id') id: string): Promise<OrderResponseDto> {
+    this.logger.log(`Retrieving order with ID: ${id}`);
+
+    return await this.ordersService.findOne(+id);
+  }
+
+  /**
+   * Update an order
+   *
+   * @param id Order ID
+   * @param updateOrderDto Order update data
+   * @returns Updated order
+   */
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update an order' })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Order has been successfully updated.',
+    type: OrderResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Order not found.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid input data, user not found, or meals not found.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to update order.',
+  })
+  async update(
+    @Param('id') id: string,
+    @Body() updateOrderDto: UpdateOrderDto,
+  ): Promise<OrderResponseDto> {
+    this.logger.log(`Updating order with ID: ${id}`);
+
+    return await this.ordersService.update(+id, updateOrderDto);
+  }
+
+  /**
+   * Delete an order
+   *
+   * @param id Order ID
+   */
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete an order' })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiResponse({
+    status: HttpStatus.NO_CONTENT,
+    description: 'Order has been successfully deleted.',
+  })
+  @ApiNotFoundResponse({
+    description: 'Order not found.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to delete order.',
+  })
+  async remove(@Param('id') id: string): Promise<void> {
+    this.logger.log(`Deleting order with ID: ${id}`);
+
+    await this.ordersService.remove(+id);
+  }
+}
