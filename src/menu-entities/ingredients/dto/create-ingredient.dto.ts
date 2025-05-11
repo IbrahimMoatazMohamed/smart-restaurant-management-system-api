@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsNumber, IsString, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsString,
+  Min,
+  IsOptional,
+} from 'class-validator';
 import Measurement from '../types/measurement.enum';
 
 export class CreateIngredientDto {
@@ -46,4 +53,13 @@ export class CreateIngredientDto {
   @IsNumber()
   @Min(0)
   warningAt: number;
+
+  @ApiProperty({
+    description: 'The ID of the category this ingredient belongs to',
+    example: 1,
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  categoryId?: number;
 }

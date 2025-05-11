@@ -46,6 +46,13 @@ export class IngredientsService {
         `Creating ingredient with name: ${createIngredientDto.name}`,
       );
 
+      // Log if a category is being assigned
+      if (createIngredientDto.categoryId) {
+        this.logger.log(
+          `Assigning ingredient to category ID: ${createIngredientDto.categoryId}`,
+        );
+      }
+
       const ingredient = this.ingredientsRepository.create(createIngredientDto);
 
       return await this.ingredientsRepository.save(ingredient);
@@ -81,7 +88,9 @@ export class IngredientsService {
   async findAll(): Promise<Ingredient[]> {
     try {
       this.logger.log('Finding all ingredients');
-      return await this.ingredientsRepository.find();
+      return await this.ingredientsRepository.find({
+        relations: ['category'],
+      });
     } catch (error) {
       this.logger.logError(error, 'IngredientsService.findAll');
       throw new InternalServerErrorException('Failed to find ingredients');
@@ -97,6 +106,7 @@ export class IngredientsService {
     try {
       const ingredient = await this.ingredientsRepository.findOne({
         where: { id },
+        relations: ['category'],
       });
       if (!ingredient) {
         this.logger.warn(`Ingredient with ID ${id} not found`);
@@ -127,14 +137,23 @@ export class IngredientsService {
     try {
       this.logger.log(`Updating ingredient with ID: ${id}`);
 
+      // Check if ingredient exists
       const existingIngredient = await this.findOne(id);
+      if (!existingIngredient) {
+        throw new NotFoundException(`Ingredient with ID ${id} not found`);
+      }
 
-      const updatedIngredient = {
-        ...existingIngredient,
-        ...updateIngredientDto,
-      };
+      // Log if category is being updated
+      if (updateIngredientDto.categoryId !== undefined) {
+        this.logger.log(
+          `Updating ingredient category to ID: ${updateIngredientDto.categoryId}`,
+        );
+      }
 
-      return await this.ingredientsRepository.save(updatedIngredient);
+      // Update the ingredient
+      await this.ingredientsRepository.update(id, updateIngredientDto);
+
+      return await this.findOne(id);
     } catch (error) {
       // Handle duplicate entry errors if the name is being updated to one that already exists
       if (updateIngredientDto.name) {
