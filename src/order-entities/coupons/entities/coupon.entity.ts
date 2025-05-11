@@ -7,6 +7,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { Order } from '../../orders/entities/order.entity';
+import { CouponType } from './coupon-type.enum';
 import { ApiProperty } from '@nestjs/swagger';
 
 @Entity('coupons')
@@ -23,9 +24,15 @@ export class Coupon {
   @Column({ nullable: true })
   description: string;
 
-  @ApiProperty({ description: 'Discount percentage (0-100)' })
-  @Column({ type: 'decimal', precision: 5, scale: 2 })
-  discountPercentage: number;
+  @ApiProperty({ description: 'Type of coupon (percentage, fixed, bogo)' })
+  @Column({ type: 'enum', enum: CouponType, default: CouponType.PERCENTAGE })
+  type: CouponType;
+
+  @ApiProperty({
+    description: 'Value of the coupon (percentage or fixed amount)',
+  })
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  value: number;
 
   @ApiProperty({
     description: 'Minimum order amount required to use the coupon',
