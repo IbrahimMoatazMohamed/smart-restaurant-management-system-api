@@ -7,10 +7,12 @@ import {
   IsEnum,
   Min,
   ArrayMinSize,
-  IsUrl,
   IsOptional,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { MealStatus } from '../entities/meal.entity';
+import { MealItemDto } from './meal-item.dto';
 
 export class CreateMealDto {
   @ApiProperty({
@@ -40,7 +42,6 @@ export class CreateMealDto {
     example: 'meal.jpg',
   })
   @IsNotEmpty()
-  @IsUrl()
   photo: string;
 
   @ApiProperty({
@@ -65,9 +66,20 @@ export class CreateMealDto {
     description: 'The IDs of items included in this meal',
     example: [1, 2, 3],
     type: [Number],
+    required: false,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
-  itemIds: number[];
+  itemIds?: number[];
+
+  @ApiProperty({
+    description: 'The items with quantities included in this meal',
+    type: [MealItemDto],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => MealItemDto)
+  mealItems?: MealItemDto[];
 }

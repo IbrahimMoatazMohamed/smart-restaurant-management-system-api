@@ -8,6 +8,11 @@ import {
   Delete,
   HttpStatus,
   HttpCode,
+  ParseIntPipe,
+  ClassSerializerInterceptor,
+  UseInterceptors,
+  Query,
+  ParseBoolPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -32,6 +37,7 @@ import { MealResponseDto } from './dto/meal-response.dto';
  */
 @ApiTags('meals')
 @Controller('meals')
+@UseInterceptors(ClassSerializerInterceptor)
 export class MealsController {
   /**
    * Constructor
@@ -75,8 +81,28 @@ export class MealsController {
   }
 
   /**
+   * Find all soft-deleted meals
+   */
+  @Get('soft-deleted')
+  @ApiOperation({ summary: 'Find all soft-deleted meals' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'List of soft-deleted meals.',
+    type: [MealResponseDto],
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to retrieve soft-deleted meals.',
+  })
+  async findAllSoftDeleted(): Promise<MealResponseDto[]> {
+    this.logger.log('Finding all soft-deleted meals');
+
+    return await this.mealsService.findAllSoftDeleted();
+  }
+
+  /**
    * Get all meals
    *
+   * @param includeDeleted Whether to include soft-deleted meals
    * @returns List of all meals
    */
   @Get()
@@ -89,10 +115,15 @@ export class MealsController {
   @ApiInternalServerErrorResponse({
     description: 'Failed to retrieve meals.',
   })
-  async findAll(): Promise<MealResponseDto[]> {
-    this.logger.log('Retrieving all meals');
+  async findAll(
+    @Query('includeDeleted', new ParseBoolPipe({ optional: true }))
+    includeDeleted?: boolean,
+  ): Promise<MealResponseDto[]> {
+    this.logger.log(
+      `Retrieving all meals${includeDeleted ? ' including deleted' : ''}`,
+    );
 
-    return await this.mealsService.findAll();
+    return await this.mealsService.findAll(includeDeleted);
   }
 
   /**
@@ -158,17 +189,17 @@ export class MealsController {
   }
 
   /**
-   * Delete a meal
+   * Soft delete a meal
    *
    * @param id Meal ID
    */
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a meal' })
+  @ApiOperation({ summary: 'Soft delete a meal' })
   @ApiParam({ name: 'id', description: 'Meal ID' })
   @ApiResponse({
     status: HttpStatus.NO_CONTENT,
-    description: 'Meal has been successfully deleted.',
+    description: 'Meal has been successfully soft-deleted.',
   })
   @ApiNotFoundResponse({
     description: 'Meal not found.',
@@ -176,9 +207,89 @@ export class MealsController {
   @ApiInternalServerErrorResponse({
     description: 'Failed to delete meal.',
   })
-  async remove(@Param('id') id: string): Promise<void> {
-    this.logger.log(`Deleting meal with ID: ${id}`);
+  async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
+    this.logger.log(`Soft deleting meal with ID: ${id}`);
 
-    await this.mealsService.remove(+id);
+    await this.mealsService.remove(id);
+  }
+
+  /**
+   * Restore a soft-deleted meal
+   *
+   * @param id Meal ID
+   * @returns Restored meal
+   */
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore a soft-deleted meal' })
+  @ApiParam({ name: 'id', description: 'Meal ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Meal has been successfully restored.',
+    type: MealResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Meal not found.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Meal is not deleted.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to restore meal.',
+  })
+  async restore(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<MealResponseDto> {
+    this.logger.log(`Restoring meal with ID: ${id}`);
+
+    return await this.mealsService.restore(id);
+  }
+
+  s; /**
+   * Find meals by active status
+   *
+   * @param isActive Active status to filter by
+   */
+  @Get('by-status/:isActive')
+  @ApiOperation({ summary: 'Find meals by active status' })
+  @ApiParam({ name: 'isActive', description: 'Active status (true/false)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'List of meals with specified status.',
+    type: [MealResponseDto],
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to retrieve meals by status.',
+  })
+  async findByActiveStatus(
+    @Param('isActive', new ParseBoolPipe()) isActive: boolean,
+  ): Promise<MealResponseDto[]> {
+    this.logger.log(`Finding meals with isActive=${isActive}`);
+
+    return await this.mealsService.findByActiveStatus(isActive);
+  }
+
+  /**
+   * Soft delete a meal using a dedicated endpoint
+   *
+   * @param id Meal ID
+   */
+  @Delete(':id/soft-delete')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Soft delete a meal (dedicated endpoint)' })
+  @ApiParam({ name: 'id', description: 'Meal ID' })
+  @ApiResponse({
+    status: HttpStatus.NO_CONTENT,
+    description: 'Meal has been successfully soft-deleted.',
+  })
+  @ApiNotFoundResponse({
+    description: 'Meal not found.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to soft delete meal.',
+  })
+  async softDelete(@Param('id', ParseIntPipe) id: number): Promise<void> {
+    this.logger.log(`Soft deleting meal with ID: ${id}`);
+
+    await this.mealsService.remove(id);
   }
 }

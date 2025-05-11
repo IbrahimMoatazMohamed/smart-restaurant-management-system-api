@@ -4,14 +4,17 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
   CreateDateColumn,
+  DeleteDateColumn,
   ManyToMany,
   JoinTable,
   ManyToOne,
   JoinColumn,
+  OneToMany,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { Item } from 'src/menu-entities/items/entities/item.entity';
 import { MenuCategory } from '../../menu-categories/entities/menu-category.entity';
+import { MealItem } from './meal-item.entity';
 
 // Define the MealStatus enum
 export enum MealStatus {
@@ -55,6 +58,13 @@ export class Meal {
   })
   status: MealStatus;
 
+  @Column({ default: true })
+  @ApiProperty({
+    description: 'Whether the meal is active',
+    example: true,
+  })
+  isActive: boolean;
+
   @ManyToOne(() => MenuCategory, (category) => category.meals, {})
   @JoinColumn({ name: 'category_id' })
   @ApiProperty({
@@ -83,6 +93,13 @@ export class Meal {
   })
   items: Item[];
 
+  @OneToMany(() => MealItem, (mealItem) => mealItem.meal, { cascade: true })
+  @ApiProperty({
+    description: 'The items with quantities included in this meal',
+    type: () => [MealItem],
+  })
+  mealItems: MealItem[];
+
   @CreateDateColumn({ name: 'created_at' })
   @ApiProperty({ description: 'When the meal was created' })
   createdAt: Date;
@@ -90,4 +107,11 @@ export class Meal {
   @UpdateDateColumn({ name: 'updated_at' })
   @ApiProperty({ description: 'When the meal was last updated' })
   updatedAt: Date;
+
+  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
+  @ApiProperty({
+    description: 'When the meal was deleted (soft delete)',
+    required: false,
+  })
+  deletedAt: Date;
 }
