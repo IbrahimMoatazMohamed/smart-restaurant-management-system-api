@@ -8,7 +8,13 @@ import {
   Delete,
   HttpStatus,
   Query,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import { FileUploadService } from '../../file-upload/file-upload.service';
 import {
   ApiTags,
   ApiOperation,
@@ -43,6 +49,7 @@ export class ItemsController {
   constructor(
     private readonly itemsService: ItemsService,
     private readonly logger: CustomLoggerService,
+    private readonly fileUploadService: FileUploadService,
   ) {
     this.logger.setContext('ItemsController');
   }
@@ -55,6 +62,20 @@ export class ItemsController {
    */
   @Post()
   @ApiOperation({ summary: 'Create a new item' })
+  @UseInterceptors(
+    FileInterceptor('photo', {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, cb) => {
+          const randomName = Array(32)
+            .fill(null)
+            .map(() => Math.round(Math.random() * 16).toString(16))
+            .join('');
+          return cb(null, `${randomName}${extname(file.originalname)}`);
+        },
+      }),
+    }),
+  )
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'The item has been successfully created.',
@@ -69,8 +90,16 @@ export class ItemsController {
   @ApiInternalServerErrorResponse({
     description: 'Failed to create item.',
   })
-  async create(@Body() createItemDto: CreateItemDto): Promise<ItemResponseDto> {
+  async create(
+    @Body() createItemDto: CreateItemDto,
+    @UploadedFile() photo?: Express.Multer.File,
+  ): Promise<ItemResponseDto> {
     this.logger.log(`Creating new item: ${createItemDto.name}`);
+
+    if (photo) {
+      const photoUrl = this.fileUploadService.getFileUrl(photo.filename);
+      createItemDto.photo = photoUrl || undefined;
+    }
 
     return await this.itemsService.create(createItemDto);
   }
@@ -147,6 +176,20 @@ export class ItemsController {
   @Patch(':id')
   @ApiOperation({ summary: 'Update an item' })
   @ApiParam({ name: 'id', description: 'Item ID' })
+  @UseInterceptors(
+    FileInterceptor('photo', {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, cb) => {
+          const randomName = Array(32)
+            .fill(null)
+            .map(() => Math.round(Math.random() * 16).toString(16))
+            .join('');
+          return cb(null, `${randomName}${extname(file.originalname)}`);
+        },
+      }),
+    }),
+  )
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'The item has been successfully updated.',
@@ -167,8 +210,14 @@ export class ItemsController {
   async update(
     @Param('id') id: string,
     @Body() updateItemDto: UpdateItemDto,
+    @UploadedFile() photo?: Express.Multer.File,
   ): Promise<ItemResponseDto> {
     this.logger.log(`Updating item with ID: ${id}`);
+
+    if (photo) {
+      const photoUrl = this.fileUploadService.getFileUrl(photo.filename);
+      updateItemDto.photo = photoUrl || undefined;
+    }
 
     return await this.itemsService.update(+id, updateItemDto);
   }

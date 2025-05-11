@@ -7,14 +7,15 @@ import { LoggerModule } from '../../logger/logger.module';
 import { MenuCategoriesModule } from '../menu-categories/menu-categories.module';
 import { ItemIngredientsModule } from 'src/menu-entities/item-ingredients/item-ingredients.module';
 import { IngredientsModule } from '../ingredients/ingredients.module';
+import { FileUploadModule } from '../../file-upload/file-upload.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Item]),
     LoggerModule,
     MenuCategoriesModule,
+    FileUploadModule,
     forwardRef(() => ItemIngredientsModule),
-    // ask
     forwardRef(() => IngredientsModule),
   ],
   controllers: [ItemsController],

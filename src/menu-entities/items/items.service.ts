@@ -48,7 +48,10 @@ export class ItemsService {
       );
 
       // Validate all ingredients exist if provided
-      if (createItemDto.ingredients?.length > 0) {
+      if (
+        Array.isArray(createItemDto.ingredients) &&
+        createItemDto.ingredients.length > 0
+      ) {
         for (const ingredient of createItemDto.ingredients) {
           await validateEntityExists(
             ingredient.ingredientId,

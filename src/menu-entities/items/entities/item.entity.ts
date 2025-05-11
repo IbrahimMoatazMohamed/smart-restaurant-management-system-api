@@ -43,6 +43,13 @@ export class Item {
   })
   photo: string;
 
+  @Column()
+  @ApiProperty({
+    description: 'The description of the item',
+    required: false,
+  })
+  description: string;
+
   @Column({
     type: 'enum',
     enum: ItemStatus,

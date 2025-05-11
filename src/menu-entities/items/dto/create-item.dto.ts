@@ -5,12 +5,11 @@ import {
   IsArray,
   IsEnum,
   IsOptional,
-  IsUrl,
   ValidateNested,
   Min,
   IsNotEmpty,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { ItemStatus } from '../entities/item.entity';
 import { CreateItemIngredientDto } from 'src/menu-entities/item-ingredients/dto/create-item-ingredient.dto';
 
@@ -23,24 +22,35 @@ export class CreateItemDto {
   @ApiProperty({ description: 'The price of the item' })
   @IsNumber()
   @Min(0)
+  @Transform(({ value }) => {
+    return typeof value === 'string' ? parseFloat(value) : Number(value);
+  })
   price: number;
+
+  @ApiProperty({
+    description: 'The description of the item',
+    required: false,
+  })
+  @IsOptional()
+  description?: string;
 
   @ApiProperty({
     description: 'The list of ingredients required for this item',
     type: [CreateItemIngredientDto],
+    required: false,
   })
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateItemIngredientDto)
-  ingredients: CreateItemIngredientDto[];
+  ingredients?: CreateItemIngredientDto[];
 
   @ApiProperty({
     description: 'The photo URL of the item',
     required: false,
   })
-  @IsNotEmpty()
-  @IsUrl()
-  photo: string;
+  @IsOptional()
+  photo?: string;
 
   @ApiProperty({
     description: 'The status of the item',
@@ -58,5 +68,8 @@ export class CreateItemDto {
   })
   @IsNotEmpty()
   @IsNumber()
+  @Transform(({ value }) => {
+    return typeof value === 'string' ? parseInt(value, 10) : Number(value);
+  })
   categoryId: number;
 }
