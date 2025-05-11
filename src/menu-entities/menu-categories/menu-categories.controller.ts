@@ -9,6 +9,10 @@ import {
   HttpStatus,
   ParseIntPipe,
   HttpCode,
+  ClassSerializerInterceptor,
+  UseInterceptors,
+  Query,
+  ParseBoolPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -32,6 +36,7 @@ import { MenuCategoryResponseDto } from './dto/menu-category-response.dto';
  */
 @ApiTags('menu-categories')
 @Controller('menu-categories')
+@UseInterceptors(ClassSerializerInterceptor)
 export class MenuCategoriesController {
   /**
    * Constructor
@@ -72,7 +77,10 @@ export class MenuCategoriesController {
       `Creating new menu category: ${createMenuCategoryDto.name}`,
     );
 
-    return await this.menuCategoriesService.create(createMenuCategoryDto);
+    const category = await this.menuCategoriesService.create(
+      createMenuCategoryDto,
+    );
+    return new MenuCategoryResponseDto(category);
   }
 
   /**
@@ -90,10 +98,17 @@ export class MenuCategoriesController {
   @ApiInternalServerErrorResponse({
     description: 'Failed to retrieve menu categories.',
   })
-  async findAll(): Promise<MenuCategoryResponseDto[]> {
-    this.logger.log('Retrieving all menu categories');
+  async findAll(
+    @Query('includeDeleted', new ParseBoolPipe({ optional: true }))
+    includeDeleted?: boolean,
+  ): Promise<MenuCategoryResponseDto[]> {
+    this.logger.log(
+      `Retrieving all menu categories${includeDeleted ? ' including deleted' : ''}`,
+    );
 
-    return await this.menuCategoriesService.findAll();
+    const categories = await this.menuCategoriesService.findAll(includeDeleted);
+
+    return categories.map((category) => new MenuCategoryResponseDto(category));
   }
 
   /**
@@ -121,7 +136,8 @@ export class MenuCategoriesController {
   ): Promise<MenuCategoryResponseDto> {
     this.logger.log(`Retrieving menu category with ID: ${id}`);
 
-    return await this.menuCategoriesService.findOne(id);
+    const category = await this.menuCategoriesService.findOne(id);
+    return new MenuCategoryResponseDto(category);
   }
 
   /**
@@ -154,21 +170,25 @@ export class MenuCategoriesController {
   ): Promise<MenuCategoryResponseDto> {
     this.logger.log(`Updating menu category with ID: ${id}`);
 
-    return await this.menuCategoriesService.update(id, updateMenuCategoryDto);
+    const category = await this.menuCategoriesService.update(
+      id,
+      updateMenuCategoryDto,
+    );
+    return new MenuCategoryResponseDto(category);
   }
 
   /**
-   * Delete a menu category
+   * Soft delete a menu category
    *
    * @param id Menu category ID
    */
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a menu category' })
+  @ApiOperation({ summary: 'Soft delete a menu category' })
   @ApiParam({ name: 'id', description: 'Menu category ID' })
   @ApiResponse({
     status: HttpStatus.NO_CONTENT,
-    description: 'Menu category has been successfully deleted.',
+    description: 'Menu category has been successfully soft-deleted.',
   })
   @ApiNotFoundResponse({
     description: 'Menu category not found.',
@@ -177,8 +197,139 @@ export class MenuCategoriesController {
     description: 'Failed to delete menu category.',
   })
   async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
-    this.logger.log(`Deleting menu category with ID: ${id}`);
+    this.logger.log(`Soft deleting menu category with ID: ${id}`);
 
     await this.menuCategoriesService.remove(id);
+  }
+
+  /**
+   * Restore a soft-deleted menu category
+   *
+   * @param id Menu category ID
+   * @returns Restored menu category
+   */
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore a soft-deleted menu category' })
+  @ApiParam({ name: 'id', description: 'Menu category ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Menu category has been successfully restored.',
+    type: MenuCategoryResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Menu category not found.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Menu category is not deleted.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to restore menu category.',
+  })
+  async restore(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<MenuCategoryResponseDto> {
+    this.logger.log(`Restoring menu category with ID: ${id}`);
+
+    const category = await this.menuCategoriesService.restore(id);
+    return new MenuCategoryResponseDto(category);
+  }
+
+  /**
+   * Find all soft-deleted menu categories
+   */
+  @Get('deleted')
+  @ApiOperation({ summary: 'Find all soft-deleted menu categories' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'List of soft-deleted menu categories.',
+    type: [MenuCategoryResponseDto],
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to retrieve soft-deleted menu categories.',
+  })
+  async findAllSoftDeleted(): Promise<MenuCategoryResponseDto[]> {
+    this.logger.log('Finding all soft-deleted menu categories');
+
+    const categories = await this.menuCategoriesService.findAllSoftDeleted();
+    return categories.map((category) => new MenuCategoryResponseDto(category));
+  }
+
+  /**
+   * Find menu categories by active status
+   *
+   * @param isActive Active status to filter by
+   */
+  @Get('by-status/:isActive')
+  @ApiOperation({ summary: 'Find menu categories by active status' })
+  @ApiParam({ name: 'isActive', description: 'Active status (true/false)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'List of menu categories with specified status.',
+    type: [MenuCategoryResponseDto],
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to retrieve menu categories by status.',
+  })
+  async findByActiveStatus(
+    @Param('isActive', new ParseBoolPipe()) isActive: boolean,
+  ): Promise<MenuCategoryResponseDto[]> {
+    this.logger.log(`Finding menu categories with isActive=${isActive}`);
+
+    const categories =
+      await this.menuCategoriesService.findByActiveStatus(isActive);
+
+    return categories.map((category) => new MenuCategoryResponseDto(category));
+  }
+
+  /**
+   * Soft delete a menu category using a dedicated endpoint
+   *
+   * @param id Menu category ID
+   */
+  @Delete(':id/soft-delete')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Soft delete a menu category (dedicated endpoint)' })
+  @ApiParam({ name: 'id', description: 'Menu category ID' })
+  @ApiResponse({
+    status: HttpStatus.NO_CONTENT,
+    description: 'Menu category has been successfully soft-deleted.',
+  })
+  @ApiNotFoundResponse({
+    description: 'Menu category not found.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to soft delete menu category.',
+  })
+  async softDelete(@Param('id', ParseIntPipe) id: number): Promise<void> {
+    this.logger.log(
+      `Soft deleting menu category with ID: ${id} (dedicated endpoint)`,
+    );
+
+    await this.menuCategoriesService.remove(id);
+  }
+
+  /**
+   * Hard delete a menu category (permanent deletion)
+   *
+   * @param id Menu category ID
+   */
+  @Delete(':id/hard-delete')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Hard delete a menu category (permanent deletion)' })
+  @ApiParam({ name: 'id', description: 'Menu category ID' })
+  @ApiResponse({
+    status: HttpStatus.NO_CONTENT,
+    description: 'Menu category has been permanently deleted.',
+  })
+  @ApiNotFoundResponse({
+    description: 'Menu category not found.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to permanently delete menu category.',
+  })
+  async hardDelete(@Param('id', ParseIntPipe) id: number): Promise<void> {
+    this.logger.log(`Hard deleting menu category with ID: ${id}`);
+
+    await this.menuCategoriesService.hardDelete(id);
   }
 }

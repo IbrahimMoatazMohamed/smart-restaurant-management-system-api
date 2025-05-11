@@ -4,6 +4,7 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   OneToMany,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
@@ -55,4 +56,11 @@ export class MenuCategory {
   @UpdateDateColumn({ name: 'updated_at' })
   @ApiProperty({ description: 'When the menu category was last updated' })
   updatedAt: Date;
+
+  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
+  @ApiProperty({
+    description: 'When the menu category was deleted (soft delete)',
+    required: false,
+  })
+  deletedAt: Date;
 }
