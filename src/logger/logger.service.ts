@@ -44,9 +44,13 @@ export class CustomLoggerService implements LoggerService {
             winston.format.timestamp(),
             winston.format.printf(
               ({ level, message, timestamp, context, ...meta }) => {
-                return `${timestamp} [${context || this.context}] ${level}: ${message} ${
-                  Object.keys(meta).length ? JSON.stringify(meta) : ''
-                }`;
+                const contextStr =
+                  typeof context === 'string' ? context : String(this.context);
+
+                const metaStr = Object.keys(meta).length
+                  ? JSON.stringify(meta)
+                  : '';
+                return `${String(timestamp)} [${contextStr}] ${String(level)}: ${String(message)} ${metaStr}`;
               },
             ),
           ),
