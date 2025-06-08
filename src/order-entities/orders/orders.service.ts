@@ -2,19 +2,23 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  ConflictException,
 } from '@nestjs/common';
 import { UsersService } from '../../users/users.service';
 import { MealsService } from '../../menu-entities/meals/meals.service';
+import { ItemsService } from '../../menu-entities/items/items.service';
+import { CouponsService } from '../../order-entities/coupons/coupons.service';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { handleError } from '../../utils/error-handler.util';
 import { validateEntityExists } from '../../utils/entity-validation.util';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { Item } from '../../menu-entities/items/entities/item.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { Order, OrderStatus } from './entities/order.entity';
+import {
+  OrderMealItem,
+  OrderItemType,
+} from './entities/order-meal-item.entity';
 
 /**
  * Orders Service
@@ -26,15 +30,19 @@ export class OrdersService {
   /**
    * Constructor
    *
-   * Initializes the orders repository, users service, meals service, and custom logger
+   * Initializes the orders repository, users service, meals service, items service, coupons service, and custom logger
    */
   constructor(
     @InjectRepository(Order)
     private readonly ordersRepository: Repository<Order>,
+    @InjectRepository(OrderMealItem)
+    private readonly orderMealItemRepository: Repository<OrderMealItem>,
     private readonly usersService: UsersService,
     private readonly mealsService: MealsService,
-    private readonly logger: CustomLoggerService,
+    private readonly itemsService: ItemsService,
+    private readonly couponsService: CouponsService,
     private readonly dataSource: DataSource,
+    private readonly logger: CustomLoggerService,
   ) {
     this.logger.setContext('OrdersService');
   }
@@ -56,9 +64,27 @@ export class OrdersService {
    * @throws BadRequestException if any meal doesn't exist
    */
   private async validateMealsExist(mealIds: number[]) {
+    if (!mealIds || mealIds.length === 0) return [];
+
     return await Promise.all(
       mealIds.map(async (id) => {
         return await validateEntityExists(id, this.mealsService, 'Meal');
+      }),
+    );
+  }
+
+  /**
+   * Validate that all items exist
+   *
+   * @param itemIds Array of item IDs to validate
+   * @throws BadRequestException if any item doesn't exist
+   */
+  private async validateItemsExist(itemIds: number[]) {
+    if (!itemIds || itemIds.length === 0) return [];
+
+    return await Promise.all(
+      itemIds.map(async (id) => {
+        return await validateEntityExists(id, this.itemsService, 'Item');
       }),
     );
   }
@@ -77,6 +103,19 @@ export class OrdersService {
   }
 
   /**
+   * Extract item IDs from menu items array
+   *
+   * @param menuItems Array of menu items with quantities
+   * @returns Array of item IDs
+   */
+  private extractItemIds(
+    menuItems?: { itemId: number; quantity: number }[],
+  ): number[] {
+    if (!menuItems || menuItems.length === 0) return [];
+    return menuItems.map((item) => item.itemId);
+  }
+
+  /**
    * Create a new order
    *
    * @param createOrderDto Order creation data
@@ -88,62 +127,83 @@ export class OrdersService {
     await queryRunner.startTransaction();
 
     try {
-      const user = await this.validateUserExists(createOrderDto.userId);
+      await this.validateUserExists(createOrderDto.userId);
+
+      let couponId: number | undefined = undefined;
+      if (createOrderDto.couponCode) {
+        try {
+          const validCoupon = await this.couponsService.validateCoupon(
+            createOrderDto.couponCode,
+            createOrderDto.totalAmount,
+          );
+          couponId = validCoupon.id;
+        } catch (error: unknown) {
+          const errorMessage =
+            error instanceof Error ? error.message : 'Unknown error';
+          throw new BadRequestException(`Invalid coupon: ${errorMessage}`);
+        }
+      }
 
       const mealIds = this.extractMealIds(createOrderDto.mealItems);
-      let meals: any[] = [];
-
       if (mealIds.length > 0) {
-        meals = await this.validateMealsExist(mealIds);
+        await this.validateMealsExist(mealIds);
+      }
+
+      const itemIds = this.extractItemIds(createOrderDto.menuItems);
+      if (itemIds.length > 0) {
+        await this.validateItemsExist(itemIds);
       }
 
       const order = this.ordersRepository.create({
+        userId: createOrderDto.userId,
+        tableId: createOrderDto.tableId,
         status: OrderStatus.PENDING,
         totalAmount: createOrderDto.totalAmount,
         specialInstructions: createOrderDto.specialInstructions,
-        userId: createOrderDto.userId,
-        user,
-        meals,
+        couponId: couponId,
       });
 
-      const savedOrder = await this.ordersRepository.save(order);
+      const savedOrder = await queryRunner.manager.save(order);
 
       if (createOrderDto.mealItems && createOrderDto.mealItems.length > 0) {
         for (const mealItem of createOrderDto.mealItems) {
-          await queryRunner.query(
-            `UPDATE order_meals SET quantity = ? WHERE order_id = ? AND meal_id = ?`,
-            [mealItem.quantity, savedOrder.id, mealItem.mealId],
-          );
+          const orderMealItem = this.orderMealItemRepository.create({
+            orderId: savedOrder.id,
+            mealId: mealItem.mealId,
+            type: OrderItemType.MEAL,
+            quantity: mealItem.quantity,
+          });
+          await queryRunner.manager.save(orderMealItem);
         }
       }
 
       if (createOrderDto.menuItems && createOrderDto.menuItems.length > 0) {
-        const itemRepository = queryRunner.manager.getRepository(Item);
-        const itemIds = createOrderDto.menuItems.map((item) => item.itemId);
-        const items = await itemRepository.findByIds(itemIds);
-
-        savedOrder.items = items;
-        await queryRunner.manager.save(savedOrder);
-
         for (const menuItem of createOrderDto.menuItems) {
-          await queryRunner.query(
-            `UPDATE order_items SET quantity = ? WHERE order_id = ? AND item_id = ?`,
-            [menuItem.quantity, savedOrder.id, menuItem.itemId],
-          );
+          const orderMealItem = this.orderMealItemRepository.create({
+            orderId: savedOrder.id,
+            itemId: menuItem.itemId,
+            type: OrderItemType.ITEM,
+            quantity: menuItem.quantity,
+          });
+          await queryRunner.manager.save(orderMealItem);
         }
       }
 
       await queryRunner.commitTransaction();
 
+      if (couponId) {
+        await this.couponsService.incrementUsage(couponId);
+      }
+
       return this.findOne(savedOrder.id);
-    } catch (err) {
+    } catch (error: any) {
       await queryRunner.rollbackTransaction();
       return handleError(
-        err,
-        [ConflictException, BadRequestException],
+        error,
+        [NotFoundException, BadRequestException],
         'Failed to create order',
         () => {
-          this.logger.logError(err, 'OrdersService.create', {
+          this.logger.logError(error, 'OrdersService.create', {
             dto: createOrderDto,
           });
         },
@@ -178,6 +238,14 @@ export class OrdersService {
     try {
       const order = await this.ordersRepository.findOne({
         where: { id },
+        relations: [
+          'user',
+          'table',
+          'coupon',
+          'orderMealItems',
+          'orderMealItems.meal',
+          'orderMealItems.item',
+        ],
       });
 
       if (!order) {
@@ -221,33 +289,43 @@ export class OrdersService {
       if (updateOrderDto.mealItems && updateOrderDto.mealItems.length > 0) {
         const mealIds = this.extractMealIds(updateOrderDto.mealItems);
         if (mealIds.length > 0) {
-          const meals = await this.validateMealsExist(mealIds);
-          order.meals = meals;
-
-          await queryRunner.manager.save(order);
+          await this.validateMealsExist(mealIds);
+          await this.orderMealItemRepository.delete({
+            orderId: order.id,
+            type: OrderItemType.MEAL,
+          });
 
           for (const mealItem of updateOrderDto.mealItems) {
-            await queryRunner.query(
-              `UPDATE order_meals SET quantity = ? WHERE order_id = ? AND meal_id = ?`,
-              [mealItem.quantity, order.id, mealItem.mealId],
-            );
+            const orderMealItem = this.orderMealItemRepository.create({
+              orderId: order.id,
+              mealId: mealItem.mealId,
+              type: OrderItemType.MEAL,
+              quantity: mealItem.quantity,
+            });
+            await queryRunner.manager.save(orderMealItem);
           }
         }
       }
 
       if (updateOrderDto.menuItems && updateOrderDto.menuItems.length > 0) {
-        const itemRepository = queryRunner.manager.getRepository(Item);
-        const itemIds = updateOrderDto.menuItems.map((item) => item.itemId);
-        const items = await itemRepository.findByIds(itemIds);
+        const itemIds = this.extractItemIds(updateOrderDto.menuItems);
+        if (itemIds.length > 0) {
+          await this.validateItemsExist(itemIds);
 
-        order.items = items;
-        await queryRunner.manager.save(order);
+          await this.orderMealItemRepository.delete({
+            orderId: order.id,
+            type: OrderItemType.ITEM,
+          });
 
-        for (const menuItem of updateOrderDto.menuItems) {
-          await queryRunner.query(
-            `UPDATE order_items SET quantity = ? WHERE order_id = ? AND item_id = ?`,
-            [menuItem.quantity, order.id, menuItem.itemId],
-          );
+          for (const menuItem of updateOrderDto.menuItems) {
+            const orderMealItem = this.orderMealItemRepository.create({
+              orderId: order.id,
+              itemId: menuItem.itemId,
+              type: OrderItemType.ITEM,
+              quantity: menuItem.quantity,
+            });
+            await queryRunner.manager.save(orderMealItem);
+          }
         }
       }
 
@@ -289,12 +367,20 @@ export class OrdersService {
    * @param id Order ID
    */
   async remove(id: number): Promise<void> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
     try {
-      // Check if order exists
       await this.findOne(id);
 
+      await this.orderMealItemRepository.delete({ orderId: id });
+
       await this.ordersRepository.delete(id);
+
+      await queryRunner.commitTransaction();
     } catch (err) {
+      await queryRunner.rollbackTransaction();
       return handleError(
         err,
         [NotFoundException],
@@ -303,6 +389,8 @@ export class OrdersService {
           this.logger.logError(err, 'OrdersService.remove', { id });
         },
       );
+    } finally {
+      await queryRunner.release();
     }
   }
 }

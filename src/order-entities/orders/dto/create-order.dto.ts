@@ -66,4 +66,13 @@ export class CreateOrderDto {
   @IsOptional()
   @IsArray()
   menuItems?: { itemId: number; quantity: number }[];
+
+  @ApiProperty({
+    description: 'Coupon code to apply to the order',
+    example: 'SUMMER20',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  couponCode?: string;
 }
