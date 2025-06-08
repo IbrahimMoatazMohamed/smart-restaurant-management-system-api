@@ -30,7 +30,7 @@ import { join } from 'path';
       password: process.env.DB_PASSWORD || '',
       database: process.env.DB_NAME || 'smart_restaurant',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: process.env.NODE_ENV !== 'production',
+      synchronize: true,
     }),
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'uploads'),

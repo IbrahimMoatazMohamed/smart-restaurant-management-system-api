@@ -2,18 +2,17 @@ import {
   Entity,
   Column,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
-  CreateDateColumn,
   ManyToOne,
-  ManyToMany,
-  JoinTable,
+  OneToMany,
+  CreateDateColumn,
+  UpdateDateColumn,
+  JoinColumn,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { Users } from '../../../users/entities/users.entity';
-import { Meal } from '../../../menu-entities/meals/entities/meal.entity';
 import { Table } from '../../tables/entities/table.entity';
-import { Item } from 'src/menu-entities/items/entities/item.entity';
-import { Coupon } from 'src/order-entities/coupons/entities/coupon.entity';
+import { Coupon } from '../../coupons/entities/coupon.entity';
+import { OrderMealItem } from './order-meal-item.entity';
 
 export enum OrderStatus {
   PENDING = 'pending',
@@ -52,18 +51,23 @@ export class Order {
   })
   specialInstructions: string;
 
-  @ManyToOne(() => Users)
+  @ManyToOne(() => Users, (user) => user.orders)
+  @JoinColumn({ name: 'user_id' })
   @ApiProperty({
     description: 'The user who placed the order',
     type: () => Users,
   })
   user: Users;
 
-  @Column()
-  @ApiProperty({ description: 'The ID of the user who placed the order' })
+  @Column({ name: 'user_id' })
+  @ApiProperty({
+    description: 'The ID of the user who placed the order',
+    type: Number,
+  })
   userId: number;
 
   @ManyToOne(() => Table, (table) => table.orders, { nullable: true })
+  @JoinColumn({ name: 'table_id' })
   @ApiProperty({
     description: 'The table associated with this order',
     type: () => Table,
@@ -71,38 +75,23 @@ export class Order {
   })
   table: Table;
 
-  @Column({ nullable: true })
+  @Column({ name: 'table_id', nullable: true })
   @ApiProperty({
-    description: 'The ID of the table for this order',
+    description: 'The ID of the table for the order',
+    type: Number,
     required: false,
   })
   tableId: number;
 
-  @ManyToMany(() => Meal)
-  @JoinTable({
-    name: 'order_meals',
-    joinColumn: { name: 'order_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'meal_id', referencedColumnName: 'id' },
-  })
+  @OneToMany(() => OrderMealItem, (orderMealItem) => orderMealItem.order)
   @ApiProperty({
-    description: 'The meals included in this order',
-    type: [Meal],
+    description: 'The meal and item quantities in this order',
+    type: [OrderMealItem],
   })
-  meals: Meal[];
-
-  @ManyToMany(() => Item)
-  @JoinTable({
-    name: 'order_items',
-    joinColumn: { name: 'order_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'item_id', referencedColumnName: 'id' },
-  })
-  @ApiProperty({
-    description: 'The items included in this order',
-    type: [Item],
-  })
-  items: Item[];
+  orderMealItems: OrderMealItem[];
 
   @ManyToOne(() => Coupon, (coupon) => coupon.orders, { nullable: true })
+  @JoinColumn({ name: 'coupon_id' })
   @ApiProperty({
     description: 'The coupon associated with this order',
     type: () => Coupon,
@@ -110,18 +99,19 @@ export class Order {
   })
   coupon: Coupon;
 
-  @Column({ nullable: true })
+  @Column({ name: 'coupon_id', nullable: true })
   @ApiProperty({
-    description: 'The ID of the coupon for this order',
+    description: 'The ID of the coupon applied to the order',
+    type: Number,
     required: false,
   })
   couponId: number;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn()
   @ApiProperty({ description: 'When the order was created' })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn()
   @ApiProperty({ description: 'When the order was last updated' })
   updatedAt: Date;
 }

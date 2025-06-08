@@ -3,24 +3,19 @@ import {
   IsNotEmpty,
   IsNumber,
   IsString,
-  IsEnum,
   IsArray,
   IsOptional,
   Min,
-  ArrayMinSize,
 } from 'class-validator';
-import { OrderStatus } from '../entities/order.entity';
 
 export class CreateOrderDto {
   @ApiProperty({
-    description: 'The status of the order',
-    enum: OrderStatus,
-    example: OrderStatus.PENDING,
-    default: OrderStatus.PENDING,
+    description: 'The ID of the table for this order',
+    required: false,
   })
   @IsOptional()
-  @IsEnum(OrderStatus)
-  status?: OrderStatus;
+  @IsNumber()
+  tableId?: number;
 
   @ApiProperty({
     description: 'The total amount of the order',
@@ -49,12 +44,26 @@ export class CreateOrderDto {
   userId: number;
 
   @ApiProperty({
-    description: 'The IDs of meals included in this order',
-    example: [1, 2, 3],
-    type: [Number],
+    description: 'Meals with quantities included in this order',
+    example: [
+      { mealId: 1, quantity: 2 },
+      { mealId: 3, quantity: 1 },
+    ],
+    type: 'array',
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
-  mealIds: number[];
+  mealItems?: { mealId: number; quantity: number }[];
+
+  @ApiProperty({
+    description: 'Menu items with quantities included in this order',
+    example: [
+      { itemId: 1, quantity: 2 },
+      { itemId: 3, quantity: 1 },
+    ],
+    type: 'array',
+  })
+  @IsOptional()
+  @IsArray()
+  menuItems?: { itemId: number; quantity: number }[];
 }
