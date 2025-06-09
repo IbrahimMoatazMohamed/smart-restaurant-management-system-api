@@ -94,6 +94,7 @@ export class AuthService {
   }
 
   async register(createUserDto: CreateUserDto) {
+    createUserDto.role = 'user';
     return await this.usersService.create(createUserDto);
   }
 }
