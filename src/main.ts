@@ -32,8 +32,6 @@ async function bootstrap() {
     .setTitle('Smart Restaurant API')
     .setDescription('The Smart Restaurant API documentation')
     .setVersion('1.0')
-    .addTag('users')
-    .addTag('auth')
     .addBearerAuth(
       {
         type: 'http',
