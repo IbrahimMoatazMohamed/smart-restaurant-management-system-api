@@ -10,6 +10,9 @@ import {
   Query,
   UseInterceptors,
   UploadedFile,
+  HttpCode,
+  ParseIntPipe,
+  ParseBoolPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -129,15 +132,19 @@ export class ItemsController {
   @ApiInternalServerErrorResponse({
     description: 'Failed to retrieve items.',
   })
-  async findAll(@Query('status') status?: ItemStatus) {
+  async findAll(
+    @Query('status') status?: ItemStatus,
+    @Query('includeDeleted', new ParseBoolPipe({ optional: true }))
+    includeDeleted?: boolean,
+  ) {
     this.logger.log(
-      `Getting all items${status ? ` with status: ${status}` : ''}`,
+      `Getting all items${status ? ` with status: ${status}` : ''}${includeDeleted ? ' including deleted' : ''}`,
     );
 
     if (status) {
       return await this.itemsService.findByStatus(status);
     }
-    return await this.itemsService.findAll();
+    return await this.itemsService.findAll(includeDeleted);
   }
 
   /**
@@ -229,21 +236,121 @@ export class ItemsController {
    * @returns Void
    */
   @Delete(':id')
-  @ApiOperation({ summary: 'Remove an item' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Soft delete an item' })
   @ApiParam({ name: 'id', description: 'Item ID' })
   @ApiResponse({
     status: HttpStatus.NO_CONTENT,
-    description: 'The item has been successfully removed.',
+    description: 'The item has been successfully soft-deleted.',
   })
   @ApiNotFoundResponse({
     description: 'Item not found.',
   })
   @ApiInternalServerErrorResponse({
-    description: 'Failed to remove item.',
+    description: 'Failed to soft delete item.',
   })
   async remove(@Param('id') id: string): Promise<void> {
-    this.logger.log(`Removing item with ID: ${id}`);
+    this.logger.log(`Soft deleting item with ID: ${id}`);
 
     await this.itemsService.remove(+id);
+  }
+
+  /**
+   * Restore a soft-deleted item
+   *
+   * @param id Item ID
+   * @returns Restored item
+   */
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore a soft-deleted item' })
+  @ApiParam({ name: 'id', description: 'Item ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Item has been successfully restored.',
+    type: ItemResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Item not found.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Item is not deleted.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to restore item.',
+  })
+  async restore(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<ItemResponseDto> {
+    this.logger.log(`Restoring item with ID: ${id}`);
+
+    return await this.itemsService.restore(id);
+  }
+
+  /**
+   * Find all soft-deleted items
+   */
+  @Get('soft-deleted')
+  @ApiOperation({ summary: 'Find all soft-deleted items' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'List of soft-deleted items.',
+    type: [ItemResponseDto],
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to retrieve soft-deleted items.',
+  })
+  async findAllSoftDeleted(): Promise<ItemResponseDto[]> {
+    this.logger.log('Finding all soft-deleted items');
+
+    return await this.itemsService.findAllSoftDeleted();
+  }
+
+  /**
+   * Find items by active status
+   *
+   * @param isActive Active status to filter by
+   */
+  @Get('by-status/:isActive')
+  @ApiOperation({ summary: 'Find items by active status' })
+  @ApiParam({ name: 'isActive', description: 'Active status (true/false)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'List of items with specified status.',
+    type: [ItemResponseDto],
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to retrieve items by status.',
+  })
+  async findByActiveStatus(
+    @Param('isActive', new ParseBoolPipe()) isActive: boolean,
+  ): Promise<ItemResponseDto[]> {
+    this.logger.log(`Finding items with isActive=${isActive}`);
+
+    return await this.itemsService.findByActiveStatus(isActive);
+  }
+
+  /**
+   * Soft delete an item using a dedicated endpoint
+   *
+   * @param id Item ID
+   */
+  @Delete(':id/soft-delete')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Soft delete an item (dedicated endpoint)' })
+  @ApiParam({ name: 'id', description: 'Item ID' })
+  @ApiResponse({
+    status: HttpStatus.NO_CONTENT,
+    description: 'Item has been successfully soft-deleted.',
+  })
+  @ApiNotFoundResponse({
+    description: 'Item not found.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to soft delete item.',
+  })
+  async softDelete(@Param('id', ParseIntPipe) id: number): Promise<void> {
+    this.logger.log(`Soft deleting item with ID: ${id}`);
+
+    await this.itemsService.remove(id);
   }
 }

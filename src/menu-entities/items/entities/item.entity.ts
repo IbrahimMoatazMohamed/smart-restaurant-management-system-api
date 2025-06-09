@@ -8,6 +8,7 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
+  DeleteDateColumn,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { Meal } from '../../meals/entities/meal.entity';
@@ -101,4 +102,11 @@ export class Item {
   @UpdateDateColumn({ name: 'updated_at' })
   @ApiProperty({ description: 'When the item was last updated' })
   updatedAt: Date;
+
+  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
+  deletedAt: Date;
+
+  @Column({ name: 'is_active', default: true })
+  @ApiProperty({ description: 'Whether the item is active or not' })
+  isActive: boolean;
 }
