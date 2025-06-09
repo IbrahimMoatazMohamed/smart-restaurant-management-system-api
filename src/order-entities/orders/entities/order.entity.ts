@@ -6,6 +6,7 @@ import {
   OneToMany,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   JoinColumn,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
@@ -114,4 +115,11 @@ export class Order {
   @UpdateDateColumn()
   @ApiProperty({ description: 'When the order was last updated' })
   updatedAt: Date;
+
+  @DeleteDateColumn()
+  @ApiProperty({
+    description: 'When the order was deleted (for soft delete)',
+    required: false,
+  })
+  deletedAt: Date;
 }
