@@ -94,16 +94,12 @@ export class MealsService {
           }),
         );
 
-        // Create meal items with quantities
-        // We'll use the repository to create and save meal items
-        // instead of directly assigning to the meal entity
         const mealItemEntities = mealItems.map((mealItem) => ({
           mealId: savedMeal.id,
           itemId: mealItem.itemId,
           quantity: mealItem.quantity,
         }));
 
-        // Get the EntityManager to insert the meal items directly
         await this.mealsRepository.manager.query(
           `INSERT INTO meal_items (meal_id, item_id, quantity) VALUES ${mealItemEntities
             .map(() => '(?, ?, ?)')
@@ -117,7 +113,7 @@ export class MealsService {
 
         // Also update the items relation for backward compatibility
         const items = await Promise.all(
-          mealItems.map((mealItem) => 
+          mealItems.map((mealItem) =>
             this.itemsService.findOne(mealItem.itemId),
           ),
         );
@@ -294,7 +290,7 @@ export class MealsService {
 
         // Also update the items relation for backward compatibility
         const items = await Promise.all(
-          updateMealDto.mealItems.map((mealItem) => 
+          updateMealDto.mealItems.map((mealItem) =>
             this.itemsService.findOne(mealItem.itemId),
           ),
         );

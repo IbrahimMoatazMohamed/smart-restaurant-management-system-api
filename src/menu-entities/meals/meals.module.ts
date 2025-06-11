@@ -7,6 +7,7 @@ import { MealItem } from './entities/meal-item.entity';
 import { LoggerModule } from '../../logger/logger.module';
 import { ItemsModule } from 'src/menu-entities/items/items.module';
 import { MenuCategoriesModule } from 'src/menu-entities/menu-categories/menu-categories.module';
+import { FileUploadModule } from 'src/file-upload/file-upload.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { MenuCategoriesModule } from 'src/menu-entities/menu-categories/menu-cat
     LoggerModule,
     ItemsModule,
     MenuCategoriesModule,
+    FileUploadModule,
   ],
   controllers: [MealsController],
   providers: [MealsService],

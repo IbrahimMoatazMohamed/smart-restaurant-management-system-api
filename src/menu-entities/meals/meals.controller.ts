@@ -13,6 +13,8 @@ import {
   UseInterceptors,
   Query,
   ParseBoolPipe,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -29,6 +31,10 @@ import { CreateMealDto } from './dto/create-meal.dto';
 import { UpdateMealDto } from './dto/update-meal.dto';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { MealResponseDto } from './dto/meal-response.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import { FileUploadService } from 'src/file-upload/file-upload.service';
 
 /**
  * Meals Controller
@@ -47,6 +53,7 @@ export class MealsController {
   constructor(
     private readonly mealsService: MealsService,
     private readonly logger: CustomLoggerService,
+    private readonly fileUploadService: FileUploadService,
   ) {
     this.logger.setContext('MealsController');
   }
@@ -57,6 +64,20 @@ export class MealsController {
    * @param createMealDto Meal creation data
    * @returns Created meal
    */
+  @UseInterceptors(
+    FileInterceptor('photo', {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, cb) => {
+          const randomName = Array(32)
+            .fill(null)
+            .map(() => Math.round(Math.random() * 16).toString(16))
+            .join('');
+          return cb(null, `${randomName}${extname(file.originalname)}`);
+        },
+      }),
+    }),
+  )
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new meal' })
@@ -74,8 +95,18 @@ export class MealsController {
   @ApiInternalServerErrorResponse({
     description: 'Failed to create meal.',
   })
-  async create(@Body() createMealDto: CreateMealDto): Promise<MealResponseDto> {
+  async create(
+    @Body() createMealDto: CreateMealDto,
+    @UploadedFile() photo?: Express.Multer.File,
+  ): Promise<MealResponseDto> {
     this.logger.log(`Creating new meal with name: ${createMealDto.name}`);
+
+    if (photo) {
+      const photoUrl = this.fileUploadService.getFileUrl(photo.filename);
+      createMealDto.photo = photoUrl || '';
+    } else {
+      throw new BadRequestException('Photo is required');
+    }
 
     return await this.mealsService.create(createMealDto);
   }

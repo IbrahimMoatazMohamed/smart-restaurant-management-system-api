@@ -6,11 +6,10 @@ import {
   IsArray,
   IsEnum,
   Min,
-  ArrayMinSize,
   IsOptional,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { MealStatus } from '../entities/meal.entity';
 import { MealItemDto } from './meal-item.dto';
 
@@ -33,6 +32,7 @@ export class CreateMealDto {
     example: 15.99,
   })
   @IsNotEmpty()
+  @Transform(({ value }) => Number(value))
   @IsNumber()
   @Min(0)
   price: number;
@@ -41,8 +41,8 @@ export class CreateMealDto {
     description: 'The photo of the meal',
     example: 'meal.jpg',
   })
-  @IsNotEmpty()
-  photo: string;
+  @IsOptional()
+  photo?: string;
 
   @ApiProperty({
     description: 'The status of the meal',
@@ -59,6 +59,7 @@ export class CreateMealDto {
     example: 1,
   })
   @IsNotEmpty()
+  @Transform(({ value }) => Number(value))
   @IsNumber()
   categoryId: number;
 
