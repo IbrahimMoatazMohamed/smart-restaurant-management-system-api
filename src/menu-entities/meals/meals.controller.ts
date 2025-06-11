@@ -197,6 +197,20 @@ export class MealsController {
    * @param updateMealDto Meal update data
    * @returns Updated meal
    */
+  @UseInterceptors(
+    FileInterceptor('photo', {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, cb) => {
+          const randomName = Array(32)
+            .fill(null)
+            .map(() => Math.round(Math.random() * 16).toString(16))
+            .join('');
+          return cb(null, `${randomName}${extname(file.originalname)}`);
+        },
+      }),
+    }),
+  )
   @Patch(':id')
   @ApiOperation({ summary: 'Update a meal' })
   @ApiParam({ name: 'id', description: 'Meal ID' })
@@ -217,11 +231,25 @@ export class MealsController {
   @ApiInternalServerErrorResponse({
     description: 'Failed to update meal.',
   })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Update meal with optional image upload',
+    type: UpdateMealDto,
+  })
   async update(
     @Param('id') id: string,
     @Body() updateMealDto: UpdateMealDto,
+    @UploadedFile() photo?: Express.Multer.File,
   ): Promise<MealResponseDto> {
     this.logger.log(`Updating meal with ID: ${id}`);
+    delete updateMealDto.photo;
+
+    if (photo) {
+      const photoUrl = this.fileUploadService.getFileUrl(photo.filename);
+      if (photoUrl) {
+        updateMealDto.photo = photoUrl;
+      }
+    }
 
     return await this.mealsService.update(+id, updateMealDto);
   }

@@ -29,6 +29,8 @@ import {
   ApiNotFoundResponse,
   ApiInternalServerErrorResponse,
   ApiConflictResponse,
+  ApiBody,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { ItemsService } from './items.service';
 import { CreateItemDto } from './dto/create-item.dto';
@@ -93,6 +95,11 @@ export class ItemsController {
   })
   @ApiInternalServerErrorResponse({
     description: 'Failed to create item.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Image upload',
+    type: CreateItemDto,
   })
   async create(
     @Body() createItemDto: CreateItemDto,
@@ -259,6 +266,11 @@ export class ItemsController {
   })
   @ApiInternalServerErrorResponse({
     description: 'Failed to update item.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Image upload',
+    type: UpdateItemDto,
   })
   async update(
     @Param('id') id: string,

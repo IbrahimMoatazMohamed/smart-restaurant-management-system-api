@@ -11,6 +11,7 @@ import {
 import { Transform, Type } from 'class-transformer';
 import { MealStatus } from '../entities/meal.entity';
 import { MealItemDto } from './meal-item.dto';
+import { BadRequestException } from '@nestjs/common';
 
 export class CreateMealDto {
   @ApiProperty({
@@ -63,19 +64,22 @@ export class CreateMealDto {
     description: 'The items with quantities included in this meal',
     type: [MealItemDto],
     required: false,
+    example: [
+      { itemId: 1, quantity: 100 },
+      { itemId: 2, quantity: 50 },
+    ],
   })
   @IsOptional()
   @IsArray()
-  @Type(() => MealItemDto)
   @Transform(({ value }) => {
     if (typeof value === 'string') {
       try {
-        return JSON.parse(value) as MealItemDto[];
+        return JSON.parse(value);
       } catch {
-        return [] as MealItemDto[];
+        throw new BadRequestException('mealItems must be a valid JSON array');
       }
     }
-    return value as MealItemDto[];
+    return value;
   })
   @Type(() => MealItemDto)
   mealItems?: MealItemDto[];

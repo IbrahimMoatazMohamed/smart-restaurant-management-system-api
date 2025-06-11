@@ -231,15 +231,12 @@ export class MealsService {
    */
   async update(id: number, updateMealDto: UpdateMealDto) {
     try {
-      // Check if meal exists
       const existingMeal = await this.findOne(id);
 
-      // If updating name, check if it already exists
       if (updateMealDto.name && updateMealDto.name !== existingMeal.name) {
         await this.checkMealNameExists(updateMealDto.name, id);
       }
 
-      // If updating category, verify it exists
       if (updateMealDto.categoryId) {
         await validateEntityExists(
           updateMealDto.categoryId,
@@ -248,88 +245,87 @@ export class MealsService {
         );
       }
 
-      // Only update allowed fields
-      const allowedFields = [
-        'name',
-        'description',
-        'price',
-        'categoryId',
-        'status',
-        'photo',
-      ];
-      const updatedFields = Object.fromEntries(
-        Object.entries(updateMealDto).filter(
-          ([key, value]) => allowedFields.includes(key) && value !== undefined,
-        ),
-      );
+      const { mealItems, ...restOfDto } = updateMealDto;
+      await this.mealsRepository.update(id, restOfDto);
 
-      await this.mealsRepository.update(id, updatedFields);
-
-      // Handle meal items with quantities if provided
-      if (updateMealDto.mealItems && updateMealDto.mealItems.length > 0) {
-        // Verify all items exist
-        await Promise.all(
-          updateMealDto.mealItems.map(async (mealItem) => {
-            await validateEntityExists(
-              mealItem.itemId,
-              this.itemsService,
-              'Item',
-            );
-          }),
+      if (mealItems && mealItems.length > 0) {
+        const existingMealItems = await this.mealItemsService.findByMealId(id);
+        const existingMealItemsMap = new Map(
+          existingMealItems.map((item) => [item.itemId, item]),
         );
 
-        // First, delete existing meal items
-        await this.mealsRepository.manager.query(
-          'DELETE FROM meal_items WHERE meal_id = ?',
-          [id],
-        );
+        const processedMealItems = mealItems
+          .map((item) => {
+            if (typeof item === 'string') {
+              try {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+                return JSON.parse(item);
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              } catch (error) {
+                this.logger.warn(
+                  `Failed to parse meal item during update: ${String(item)}`,
+                );
+                return null;
+              }
+            }
+            return item;
+          })
+          .filter(
+            (item): item is { itemId: number; quantity: number } =>
+              item !== null &&
+              typeof item === 'object' &&
+              'itemId' in item &&
+              'quantity' in item &&
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              typeof item.itemId === 'number' &&
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              typeof item.quantity === 'number',
+          );
 
-        // Create meal items with quantities
-        const mealItemEntities = updateMealDto.mealItems.map((mealItem) => ({
-          mealId: id,
-          itemId: mealItem.itemId,
-          quantity: mealItem.quantity,
-        }));
+        if (processedMealItems.length === 0) {
+          this.logger.warn(
+            `No valid meal items found after processing for meal ID ${id}`,
+          );
+        } else {
+          await Promise.all(
+            processedMealItems.map(async (mealItem) => {
+              await validateEntityExists(
+                mealItem.itemId,
+                this.itemsService,
+                'Item',
+              );
+            }),
+          );
 
-        // Insert new meal items
-        await this.mealsRepository.manager.query(
-          `INSERT INTO meal_items (meal_id, item_id, quantity) VALUES ${mealItemEntities
-            .map(() => '(?, ?, ?)')
-            .join(', ')}`,
-          mealItemEntities.flatMap((item) => [
-            item.mealId,
-            item.itemId,
-            item.quantity,
-          ]),
-        );
+          const mealItemEntities = processedMealItems.map((mealItem) => ({
+            mealId: id,
+            itemId: mealItem.itemId,
+            quantity: mealItem.quantity,
+          }));
 
-        // Also update the items relation for backward compatibility
-        const items = await Promise.all(
-          updateMealDto.mealItems.map((mealItem) =>
-            this.itemsService.findOne(mealItem.itemId),
-          ),
-        );
-
-        // Get the meal with relations
-        const meal = await this.mealsRepository.findOne({
-          where: { id },
-          relations: ['items'],
-        });
-
-        if (meal) {
-          meal.items = items;
-          await this.mealsRepository.save(meal);
+          for (const mealItem of mealItemEntities) {
+            try {
+              if (existingMealItemsMap.has(mealItem.itemId)) {
+                await this.mealItemsService.update(id, mealItem.itemId, {
+                  quantity: mealItem.quantity,
+                });
+                this.logger.debug(
+                  `Updated meal item for meal ID ${id}, item ID ${mealItem.itemId}, quantity: ${mealItem.quantity}`,
+                );
+              } else {
+                await this.mealItemsService.create(mealItem);
+                this.logger.debug(
+                  `Created meal item for meal ID ${id}: ${JSON.stringify(mealItem)}`,
+                );
+              }
+            } catch (error) {
+              this.logger.error(
+                `Failed to create/update meal item during update: ${JSON.stringify(mealItem)}`,
+                error instanceof Error ? error.message : String(error),
+              );
+            }
+          }
         }
-      }
-
-      // Get the meal with relations
-      const meal = await this.mealsRepository.findOne({
-        where: { id },
-        relations: ['items'],
-      });
-
-      if (meal) {
-        await this.mealsRepository.save(meal);
       }
 
       return this.findOne(id);
