@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MealsController } from './meals.controller';
 import { MealsService } from './meals.service';
@@ -8,6 +8,7 @@ import { LoggerModule } from '../../logger/logger.module';
 import { ItemsModule } from 'src/menu-entities/items/items.module';
 import { MenuCategoriesModule } from 'src/menu-entities/menu-categories/menu-categories.module';
 import { FileUploadModule } from 'src/file-upload/file-upload.module';
+import { MealItemsModule } from '../meal-items/meal-items.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { FileUploadModule } from 'src/file-upload/file-upload.module';
     ItemsModule,
     MenuCategoriesModule,
     FileUploadModule,
+    forwardRef(() => MealItemsModule),
   ],
   controllers: [MealsController],
   providers: [MealsService],

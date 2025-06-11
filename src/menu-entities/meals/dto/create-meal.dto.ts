@@ -7,7 +7,6 @@ import {
   IsEnum,
   Min,
   IsOptional,
-  ValidateNested,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { MealStatus } from '../entities/meal.entity';
@@ -37,12 +36,9 @@ export class CreateMealDto {
   @Min(0)
   price: number;
 
-  @ApiProperty({
-    description: 'The photo of the meal',
-    example: 'meal.jpg',
-  })
+  @ApiProperty({ type: 'string', format: 'binary', required: false })
   @IsOptional()
-  photo?: string;
+  photo?: any;
 
   @ApiProperty({
     description: 'The status of the meal',
@@ -64,23 +60,23 @@ export class CreateMealDto {
   categoryId: number;
 
   @ApiProperty({
-    description: 'The IDs of items included in this meal',
-    example: [1, 2, 3],
-    type: [Number],
-    required: false,
-  })
-  @IsOptional()
-  @IsArray()
-  itemIds?: number[];
-
-  @ApiProperty({
     description: 'The items with quantities included in this meal',
     type: [MealItemDto],
     required: false,
   })
   @IsOptional()
   @IsArray()
-  @ValidateNested({ each: true })
+  @Type(() => MealItemDto)
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value) as MealItemDto[];
+      } catch {
+        return [] as MealItemDto[];
+      }
+    }
+    return value as MealItemDto[];
+  })
   @Type(() => MealItemDto)
   mealItems?: MealItemDto[];
 }

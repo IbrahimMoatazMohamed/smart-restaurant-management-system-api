@@ -25,6 +25,8 @@ import {
   ApiNotFoundResponse,
   ApiInternalServerErrorResponse,
   ApiBadRequestResponse,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { MealsService } from './meals.service';
 import { CreateMealDto } from './dto/create-meal.dto';
@@ -94,6 +96,11 @@ export class MealsController {
   })
   @ApiInternalServerErrorResponse({
     description: 'Failed to create meal.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Image upload',
+    type: CreateMealDto,
   })
   async create(
     @Body() createMealDto: CreateMealDto,
