@@ -1,4 +1,11 @@
-import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  PrimaryColumn,
+  DeleteDateColumn,
+} from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { Meal } from '../../meals/entities/meal.entity';
 import { Item } from '../../items/entities/item.entity';
@@ -20,6 +27,20 @@ export class MealItem {
     minimum: 1,
   })
   quantity: number;
+
+  @Column({ default: true })
+  @ApiProperty({
+    description: 'Whether the meal item is active',
+    example: true,
+  })
+  isActive: boolean;
+
+  @DeleteDateColumn({ name: 'deleted_at' })
+  @ApiProperty({
+    description: 'When the meal item was soft deleted',
+    required: false,
+  })
+  deletedAt: Date;
 
   @ManyToOne(() => Meal, (meal) => meal.mealItems, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'meal_id' })
