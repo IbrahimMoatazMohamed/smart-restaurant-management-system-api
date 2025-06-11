@@ -108,9 +108,9 @@ export class ItemsService {
   async findAll(includeDeleted: boolean = false) {
     try {
       const items = await this.itemsRepository.find({
-        withDeleted: !includeDeleted,
+        withDeleted: includeDeleted,
         where: {
-          isActive: Boolean(!includeDeleted),
+          isActive: !includeDeleted,
         },
         relations: ['category'],
       });
@@ -257,10 +257,7 @@ export class ItemsService {
     try {
       const item = await this.findOne(id);
 
-      await this.itemsRepository.softDelete(id);
-
-      item.isActive = false;
-      await this.itemsRepository.save(item);
+      await this.itemsRepository.delete(item);
 
       this.logger.log(`Item with ID ${id} soft deleted`);
     } catch (error) {
@@ -396,6 +393,53 @@ export class ItemsService {
           this.logger.logError(error, 'ItemsService.findByActiveStatus', {
             isActive,
           });
+        },
+      );
+    }
+  }
+
+  /**
+   * Soft delete an item
+   *
+   * @param id Item ID
+   * @returns The soft-deleted item
+   */
+  async softDelete(id: number): Promise<Item | null> {
+    try {
+      // Validate that id is a valid number
+      if (!id || isNaN(id)) {
+        this.logger.warn(`Invalid item ID: ${id}`);
+        throw new BadRequestException(`Invalid item ID: ${id}`);
+      }
+
+      const item = await this.findOne(id);
+
+      item.isActive = false;
+      await this.itemsRepository.save(item);
+
+      await this.itemsRepository.softDelete(id);
+
+      this.logger.log(`Item with ID ${id} soft deleted`);
+
+      const softDeletedItem = await this.itemsRepository.findOne({
+        where: { id },
+        withDeleted: true,
+      });
+
+      if (!softDeletedItem) {
+        throw new NotFoundException(
+          `Item with ID ${id} not found after soft delete`,
+        );
+      }
+
+      return softDeletedItem;
+    } catch (error) {
+      return handleError(
+        error,
+        [NotFoundException, BadRequestException],
+        `Failed to soft delete item with ID ${id}`,
+        () => {
+          this.logger.logError(error, 'ItemsService.softDelete', { id });
         },
       );
     }

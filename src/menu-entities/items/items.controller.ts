@@ -13,6 +13,7 @@ import {
   HttpCode,
   ParseIntPipe,
   ParseBoolPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -101,7 +102,9 @@ export class ItemsController {
 
     if (photo) {
       const photoUrl = this.fileUploadService.getFileUrl(photo.filename);
-      createItemDto.photo = photoUrl || undefined;
+      createItemDto.photo = photoUrl || '';
+    } else {
+      throw new BadRequestException('Photo is required');
     }
 
     return await this.itemsService.create(createItemDto);
@@ -148,6 +151,49 @@ export class ItemsController {
   }
 
   /**
+   * Find all soft-deleted items
+   */
+  @Get('soft-deleted')
+  @ApiOperation({ summary: 'Find all soft-deleted items' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'List of soft-deleted items.',
+    type: [ItemResponseDto],
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to retrieve soft-deleted items.',
+  })
+  async findAllSoftDeleted(): Promise<ItemResponseDto[]> {
+    this.logger.log('Finding all soft-deleted items');
+
+    return await this.itemsService.findAllSoftDeleted();
+  }
+
+  /**
+   * Find items by active status
+   *
+   * @param isActive Active status to filter by
+   */
+  @Get('by-status/:isActive')
+  @ApiOperation({ summary: 'Find items by active status' })
+  @ApiParam({ name: 'isActive', description: 'Active status (true/false)' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'List of items with specified status.',
+    type: [ItemResponseDto],
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to retrieve items by status.',
+  })
+  async findByActiveStatus(
+    @Param('isActive', new ParseBoolPipe()) isActive: boolean,
+  ): Promise<ItemResponseDto[]> {
+    this.logger.log(`Finding items with isActive=${isActive}`);
+
+    return await this.itemsService.findByActiveStatus(isActive);
+  }
+
+  /**
    * Get a specific item by ID
    *
    * @param id Item ID
@@ -158,7 +204,7 @@ export class ItemsController {
   @ApiParam({ name: 'id', description: 'Item ID' })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Returns the item with the specified ID.',
+    description: 'Returns the found item.',
     type: ItemResponseDto,
   })
   @ApiNotFoundResponse({
@@ -287,49 +333,6 @@ export class ItemsController {
   }
 
   /**
-   * Find all soft-deleted items
-   */
-  @Get('soft-deleted')
-  @ApiOperation({ summary: 'Find all soft-deleted items' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'List of soft-deleted items.',
-    type: [ItemResponseDto],
-  })
-  @ApiInternalServerErrorResponse({
-    description: 'Failed to retrieve soft-deleted items.',
-  })
-  async findAllSoftDeleted(): Promise<ItemResponseDto[]> {
-    this.logger.log('Finding all soft-deleted items');
-
-    return await this.itemsService.findAllSoftDeleted();
-  }
-
-  /**
-   * Find items by active status
-   *
-   * @param isActive Active status to filter by
-   */
-  @Get('by-status/:isActive')
-  @ApiOperation({ summary: 'Find items by active status' })
-  @ApiParam({ name: 'isActive', description: 'Active status (true/false)' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'List of items with specified status.',
-    type: [ItemResponseDto],
-  })
-  @ApiInternalServerErrorResponse({
-    description: 'Failed to retrieve items by status.',
-  })
-  async findByActiveStatus(
-    @Param('isActive', new ParseBoolPipe()) isActive: boolean,
-  ): Promise<ItemResponseDto[]> {
-    this.logger.log(`Finding items with isActive=${isActive}`);
-
-    return await this.itemsService.findByActiveStatus(isActive);
-  }
-
-  /**
    * Soft delete an item using a dedicated endpoint
    *
    * @param id Item ID
@@ -350,6 +353,31 @@ export class ItemsController {
   })
   async softDelete(@Param('id', ParseIntPipe) id: number): Promise<void> {
     this.logger.log(`Soft deleting item with ID: ${id}`);
+
+    await this.itemsService.softDelete(id);
+  }
+
+  /**
+   * Permanently delete an item
+   *
+   * @param id Item ID
+   */
+  @Delete(':id/permanent-delete')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Permanently delete an item' })
+  @ApiParam({ name: 'id', description: 'Item ID' })
+  @ApiResponse({
+    status: HttpStatus.NO_CONTENT,
+    description: 'Item has been successfully permanently deleted.',
+  })
+  @ApiNotFoundResponse({
+    description: 'Item not found.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to permanently delete item.',
+  })
+  async permanentDelete(@Param('id', ParseIntPipe) id: number): Promise<void> {
+    this.logger.log(`Permanently deleting item with ID: ${id}`);
 
     await this.itemsService.remove(id);
   }
