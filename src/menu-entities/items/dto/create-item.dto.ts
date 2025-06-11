@@ -45,12 +45,9 @@ export class CreateItemDto {
   @Type(() => CreateItemIngredientDto)
   ingredients?: CreateItemIngredientDto[];
 
-  @ApiProperty({
-    description: 'The photo URL of the item',
-    required: false,
-  })
+  @ApiProperty({ type: 'string', format: 'binary', required: false })
   @IsOptional()
-  photo?: string;
+  photo?: any;
 
   @ApiProperty({
     description: 'The status of the item',
