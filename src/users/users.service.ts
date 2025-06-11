@@ -160,7 +160,7 @@ export class UsersService {
   async findByEmail(email: string) {
     try {
       const user = await this.usersRepository.findOne({
-        where: { email },
+        where: { email: email.toLowerCase() },
         select: ['id', 'email', 'name', 'role', 'password'],
       });
       if (!user) {

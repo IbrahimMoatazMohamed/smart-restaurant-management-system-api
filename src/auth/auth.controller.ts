@@ -7,9 +7,11 @@ import {
   ApiInternalServerErrorResponse,
   ApiConflictResponse,
   ApiBadRequestResponse,
+  ApiForbiddenResponse,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { AdminLoginDto } from './dto/admin-login.dto';
 import { CustomLoggerService } from '../logger/logger.service';
 import { UserResponseDto } from 'src/users/dto/user-response.dto';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
@@ -72,5 +74,28 @@ export class AuthController {
   async register(@Body() createUserDto: CreateUserDto) {
     this.logger.log(`Creating new user with email: ${createUserDto.email}`);
     return await this.authService.register(createUserDto);
+  }
+
+  @Post('admin/login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Login as admin' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Admin has been successfully logged in.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Invalid credentials.',
+  })
+  @ApiForbiddenResponse({
+    description: 'Access denied. Admin privileges required.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to login as admin.',
+  })
+  async adminLogin(@Body() adminLoginDto: AdminLoginDto) {
+    this.logger.log(
+      `Admin login attempt for user with email: ${adminLoginDto.email}`,
+    );
+    return await this.authService.adminLogin(adminLoginDto);
   }
 }

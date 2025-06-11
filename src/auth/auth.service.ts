@@ -1,9 +1,14 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { CustomLoggerService } from '../logger/logger.service';
 import { handleError } from '../utils/error-handler.util';
 import { LoginDto } from './dto/login.dto';
+import { AdminLoginDto } from './dto/admin-login.dto';
 import { comparePasswords } from '../utils/password.util';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
 
@@ -40,9 +45,10 @@ export class AuthService {
       if (!isPasswordValid) {
         throw new UnauthorizedException('Invalid credentials');
       }
-
+      console.log(user);
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password: passwordField, ...result } = user;
+      console.log(result);
       return result;
     } catch (err) {
       return handleError(
@@ -96,5 +102,51 @@ export class AuthService {
   async register(createUserDto: CreateUserDto) {
     createUserDto.role = 'user';
     return await this.usersService.create(createUserDto);
+  }
+
+  async adminLogin(adminLoginDto: AdminLoginDto) {
+    try {
+      const user = await this.validateUser(
+        adminLoginDto.email,
+        adminLoginDto.password,
+      );
+
+      if (!user) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
+      if (user.role !== 'admin') {
+        throw new ForbiddenException(
+          'Access denied. Admin privileges required.',
+        );
+      }
+
+      const payload = {
+        email: user.email,
+        sub: user.id,
+        role: user.role,
+      };
+
+      return {
+        access_token: this.jwtService.sign(payload),
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        },
+      };
+    } catch (err) {
+      return handleError(
+        err,
+        [UnauthorizedException, ForbiddenException],
+        'Failed to login as admin',
+        () => {
+          this.logger.logError(err, 'AuthService.adminLogin', {
+            email: adminLoginDto.email,
+          });
+        },
+      );
+    }
   }
 }
