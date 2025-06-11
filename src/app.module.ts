@@ -16,7 +16,7 @@ import { IngredientCategoriesModule } from './menu-entities/ingredient-categorie
 import { FileUploadModule } from './file-upload/file-upload.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
-import { MealItemsModule } from './meal-items/meal-items.module';
+import { MealItemsModule } from './menu-entities/meal-items/meal-items.module';
 
 @Module({
   imports: [
