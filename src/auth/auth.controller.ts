@@ -14,6 +14,7 @@ import { LoginDto } from './dto/login.dto';
 import { AdminLoginDto } from './dto/admin-login.dto';
 import { CustomLoggerService } from '../logger/logger.service';
 import { UserResponseDto } from 'src/users/dto/user-response.dto';
+import { UserRegistrationDto } from './dto/user-registration';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
 
 @ApiTags('auth')
@@ -71,9 +72,19 @@ export class AuthController {
   @ApiInternalServerErrorResponse({
     description: 'Failed to create user.',
   })
-  async register(@Body() createUserDto: CreateUserDto) {
+  async register(@Body() createUserDto: UserRegistrationDto) {
     this.logger.log(`Creating new user with email: ${createUserDto.email}`);
-    return await this.authService.register(createUserDto);
+
+    const user = new CreateUserDto();
+    user.role = 'user';
+    user.name = createUserDto.name;
+    user.email = createUserDto.email;
+    user.country = createUserDto.country;
+    user.phone = createUserDto.phone;
+    user.gender = createUserDto.gender;
+    user.password = createUserDto.password;
+
+    return await this.authService.register(user);
   }
 
   @Post('admin/login')
