@@ -74,7 +74,10 @@ export class ItemsService {
           measurement: ingredient.measurement,
         }));
 
-        await this.itemIngredientsService.save(itemIngredients);
+        await this.itemIngredientsService.upsert(itemIngredients);
+        this.logger.log(
+          `Added ${itemIngredients.length} ingredients to item ID: ${savedItem.id}`,
+        );
       }
 
       this.logger.log(`Item created with ID: ${savedItem.id}`);
@@ -164,7 +167,6 @@ export class ItemsService {
     try {
       const item = await this.findOne(id);
 
-      // Verify that the category exists if it's being updated
       if (updateItemDto.categoryId) {
         await validateEntityExists(
           updateItemDto.categoryId,
@@ -173,7 +175,6 @@ export class ItemsService {
         );
       }
 
-      // Validate all ingredients exist if provided
       if (updateItemDto.ingredients?.length) {
         for (const ingredient of updateItemDto.ingredients) {
           await validateEntityExists(
@@ -184,28 +185,31 @@ export class ItemsService {
         }
       }
 
-      // Update item properties explicitly instead of using Object.assign
       if (updateItemDto.name) item.name = updateItemDto.name;
       if (updateItemDto.price !== undefined) item.price = updateItemDto.price;
       if (updateItemDto.photo) item.photo = updateItemDto.photo;
       if (updateItemDto.status) item.status = updateItemDto.status;
       if (updateItemDto.categoryId) item.categoryId = updateItemDto.categoryId;
+      if (updateItemDto.description !== undefined) {
+        item.description = updateItemDto.description || '';
+      }
 
       await this.itemsRepository.save(item);
 
-      if (updateItemDto.ingredients?.length) {
+      if (updateItemDto.ingredients !== undefined) {
         const existingIngredients = await this.itemIngredientsService.find({
           where: { item_id: id },
         });
 
-        const newIngredients = updateItemDto.ingredients.map((ingredient) => ({
-          item_id: id,
-          ingredient_id: ingredient.ingredientId,
-          qty: ingredient.qty,
-          measurement: ingredient.measurement,
-        }));
+        const newIngredients = (updateItemDto.ingredients || []).map(
+          (ingredient) => ({
+            item_id: id,
+            ingredient_id: ingredient.ingredientId,
+            qty: ingredient.qty,
+            measurement: ingredient.measurement,
+          }),
+        );
 
-        // Remove ingredients that are not in the updated list
         const newIngredientIds = newIngredients.map((i) => i.ingredient_id);
         const ingredientsToRemove = existingIngredients
           .filter((i) => !newIngredientIds.includes(i.ingredient_id))
@@ -213,16 +217,22 @@ export class ItemsService {
 
         if (ingredientsToRemove.length) {
           await this.itemIngredientsService.delete(ingredientsToRemove);
+          this.logger.log(
+            `Removed ${ingredientsToRemove.length} ingredients from item ID: ${id}`,
+          );
         }
 
-        // Insert or update new ingredients
-        await this.itemIngredientsService.upsert(newIngredients);
+        if (newIngredients.length > 0) {
+          await this.itemIngredientsService.upsert(newIngredients);
+          this.logger.log(
+            `Updated ${newIngredients.length} ingredients for item ID: ${id}`,
+          );
+        }
       }
 
       this.logger.log(`Item with ID ${id} updated`);
-      return this.findOne(id); // Return the updated item
+      return this.findOne(id);
     } catch (error) {
-      // Handle duplicate entry errors
       if (updateItemDto.name) {
         handleDuplicateEntryError(
           error,

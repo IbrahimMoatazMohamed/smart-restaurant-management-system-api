@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { ApiProperty } from '@nestjs/swagger';
 import {
   IsString,
@@ -5,13 +6,13 @@ import {
   IsArray,
   IsEnum,
   IsOptional,
-  ValidateNested,
   Min,
   IsNotEmpty,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ItemStatus } from '../entities/item.entity';
 import { CreateItemIngredientDto } from 'src/menu-entities/item-ingredients/dto/create-item-ingredient.dto';
+import { BadRequestException } from '@nestjs/common';
 
 export class CreateItemDto {
   @ApiProperty({ description: 'The name of the item' })
@@ -38,16 +39,32 @@ export class CreateItemDto {
     description: 'The list of ingredients required for this item',
     type: [CreateItemIngredientDto],
     required: false,
+    example: [
+      {
+        ingredientId: 1,
+        qty: 4,
+        measurement: 'kg',
+      },
+    ],
   })
   @IsOptional()
   @IsArray()
-  @ValidateNested({ each: true })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        throw new BadRequestException('ingredients must be a valid JSON array');
+      }
+    }
+    return value;
+  })
   @Type(() => CreateItemIngredientDto)
   ingredients?: CreateItemIngredientDto[];
 
   @ApiProperty({ type: 'string', format: 'binary', required: false })
   @IsOptional()
-  photo?: any;
+  photo?: string;
 
   @ApiProperty({
     description: 'The status of the item',
