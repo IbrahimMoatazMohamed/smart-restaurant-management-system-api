@@ -222,7 +222,6 @@ export class MealItemsService {
       const mealItem = await this.findOne(mealId, itemId);
 
       if (updateMealItemDto.quantity) {
-        console.log(mealItem);
         mealItem.quantity = updateMealItemDto.quantity;
       }
 

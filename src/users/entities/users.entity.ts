@@ -50,6 +50,13 @@ export class Users {
   })
   gender: string;
 
+  @Column({ nullable: true })
+  @ApiProperty({
+    description: 'The profile image URL of the user',
+    required: false,
+  })
+  imageUrl: string;
+
   @OneToMany(() => Order, (order) => order.user)
   @ApiProperty({
     description: 'The orders placed by this user',

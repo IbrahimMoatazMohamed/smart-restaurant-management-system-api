@@ -9,6 +9,8 @@ import {
   HttpStatus,
   HttpCode,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -21,6 +23,8 @@ import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiForbiddenResponse,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -30,6 +34,10 @@ import { UserResponseDto } from './dto/user-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminRoleGuard } from '../auth/guards/admin-role.guard';
 import { AdminOnly } from '../auth/decorators/roles.decorator';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import { FileUploadService } from 'src/file-upload/file-upload.service';
 
 /**
  * Users Controller
@@ -47,6 +55,7 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly logger: CustomLoggerService,
+    private readonly fileUploadService: FileUploadService,
   ) {
     this.logger.setContext('UsersController');
   }
@@ -193,5 +202,63 @@ export class UsersController {
   async remove(@Param('id') id: string): Promise<void> {
     this.logger.log(`Deleting user with ID: ${id}`);
     await this.usersService.remove(+id);
+  }
+
+  /**
+   * Upload a profile image for a user
+   *
+   * @param id User ID
+   * @param file Image file
+   * @returns Object with image URL
+   */
+  @Post(':id/image')
+  // @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Upload a profile image' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Image has been successfully uploaded.',
+  })
+  @ApiNotFoundResponse({
+    description: 'User not found.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid file format or size.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to upload image.',
+  })
+  @UseInterceptors(
+    FileInterceptor('photo', {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, cb) => {
+          const randomName = Array(32)
+            .fill(null)
+            .map(() => Math.round(Math.random() * 16).toString(16))
+            .join('');
+          return cb(null, `${randomName}${extname(file.originalname)}`);
+        },
+      }),
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Update meal with optional image upload',
+  })
+  async uploadProfileImage(
+    @Param('id') id: string,
+    @UploadedFile() photo: Express.Multer.File,
+  ) {
+    this.logger.log(`Uploading profile image for user with ID: ${id}`);
+    console.log(photo);
+    let imageUrl = '';
+    if (photo) {
+      const photoUrl = this.fileUploadService.getFileUrl(photo.filename);
+      if (photoUrl) {
+        imageUrl = photoUrl;
+      }
+    }
+    return await this.usersService.updateProfileImage(+id, imageUrl);
   }
 }

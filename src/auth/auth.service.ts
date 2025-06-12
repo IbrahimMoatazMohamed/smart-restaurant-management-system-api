@@ -45,10 +45,8 @@ export class AuthService {
       if (!isPasswordValid) {
         throw new UnauthorizedException('Invalid credentials');
       }
-      console.log(user);
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password: passwordField, ...result } = user;
-      console.log(result);
       return result;
     } catch (err) {
       return handleError(
