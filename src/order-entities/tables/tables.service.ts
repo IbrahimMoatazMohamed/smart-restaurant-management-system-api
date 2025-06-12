@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Not, Repository } from 'typeorm';
+import { Not, Repository, MoreThanOrEqual } from 'typeorm';
 import { CreateTableDto } from './dto/create-table.dto';
 import { UpdateTableDto } from './dto/update-table.dto';
 import { Table } from './entities/table.entity';
@@ -91,6 +91,38 @@ export class TablesService {
     } catch (err) {
       return handleError(err, [], 'Failed to retrieve tables', () => {
         this.logger.logError(err, 'TablesService.findAll');
+      });
+    }
+  }
+
+  /**
+   * Find available tables based on date, time, and party size
+   *
+   * @param date Date in YYYY-MM-DD format
+   * @param time Time in HH:MM format
+   * @param partySize Number of people in the party
+   * @returns List of available tables
+   */
+  async findAvailable(date: string, time: string, partySize: number) {
+    try {
+      this.logger.log(
+        `Finding available tables for ${date} at ${time} for party of ${partySize}`,
+      );
+
+      const tables = await this.tablesRepository.find({
+        where: {
+          capacity: MoreThanOrEqual(partySize),
+        },
+      });
+
+      return tables;
+    } catch (err) {
+      return handleError(err, [], 'Failed to retrieve available tables', () => {
+        this.logger.logError(err, 'TablesService.findAvailable', {
+          date,
+          time,
+          partySize,
+        });
       });
     }
   }

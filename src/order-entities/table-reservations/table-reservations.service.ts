@@ -37,18 +37,20 @@ export class TableReservationsService {
   async create(
     createTableReservationDto: CreateTableReservationDto,
   ): Promise<TableReservationResponseDto> {
-    this.logger.log(
-      `Creating reservation for table ID: ${createTableReservationDto.tableId}`,
-    );
+    const tableId = createTableReservationDto.tableId;
+    if (!tableId || isNaN(Number(tableId))) {
+      this.logger.error(`Invalid table ID: ${tableId}`);
+      throw new BadRequestException('Invalid table ID');
+    }
+
+    this.logger.log(`Creating reservation for table ID: ${tableId}`);
 
     const table = await this.tableRepository.findOne({
-      where: { id: createTableReservationDto.tableId },
+      where: { id: Number(tableId) },
     });
 
     if (!table) {
-      throw new NotFoundException(
-        `Table with ID ${createTableReservationDto.tableId} not found`,
-      );
+      throw new NotFoundException(`Table with ID ${tableId} not found`);
     }
 
     if (table.status === TableStatus.MAINTENANCE) {
@@ -84,14 +86,37 @@ export class TableReservationsService {
 
     const conflictingReservations = await this.tableReservationRepository.find({
       where: {
-        tableId: createTableReservationDto.tableId,
+        tableId: Number(tableId),
         status: ReservationStatus.CONFIRMED,
       },
     });
 
     for (const reservation of conflictingReservations) {
+      let dateString: string;
+      try {
+        if (reservation.reservationDate instanceof Date) {
+          dateString = format(reservation.reservationDate, 'yyyy-MM-dd');
+        } else {
+          const dateValue = String(reservation.reservationDate);
+          if (dateValue.includes('T')) {
+            dateString = dateValue.split('T')[0];
+          } else {
+            dateString = dateValue;
+          }
+        }
+      } catch (e) {
+        this.logger.warn(
+          'Error formatting reservation date, using current date',
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+          e.message,
+        );
+        throw new BadRequestException(
+          'Error formatting reservation date, using current date',
+        );
+      }
+
       const existingReservationTime = parseISO(
-        `${reservation.reservationDate.toISOString().split('T')[0]}T${reservation.reservationTime}`,
+        `${dateString}T${reservation.reservationTime}`,
       );
       const existingEndTime = addHours(existingReservationTime, 2);
 

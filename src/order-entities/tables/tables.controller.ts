@@ -8,6 +8,7 @@ import {
   Delete,
   HttpStatus,
   HttpCode,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -97,6 +98,36 @@ export class TablesController {
     this.logger.log('Retrieving all tables');
 
     return await this.tablesService.findAll();
+  }
+
+  /**
+   * Get available tables based on date, time, and party size
+   *
+   * @param date Date in YYYY-MM-DD format
+   * @param time Time in HH:MM format
+   * @param partySize Number of people in the party
+   * @returns List of available tables
+   */
+  @Get('available')
+  @ApiOperation({ summary: 'Get available tables' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'List of available tables.',
+    type: [TableResponseDto],
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to retrieve available tables.',
+  })
+  async findAvailable(
+    @Query('date') date: string,
+    @Query('time') time: string,
+    @Query('partySize') partySize: number,
+  ): Promise<TableResponseDto[]> {
+    this.logger.log(
+      `Retrieving available tables for date: ${date}, time: ${time}, party size: ${partySize}`,
+    );
+
+    return await this.tablesService.findAvailable(date, time, +partySize);
   }
 
   /**
