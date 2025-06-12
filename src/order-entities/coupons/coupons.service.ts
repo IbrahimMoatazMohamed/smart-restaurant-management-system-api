@@ -13,7 +13,9 @@ import { CustomLoggerService } from '../../logger/logger.service';
 import { handleError } from '../../utils/error-handler.util';
 import { CouponResponseDto } from './dto/coupon-response.dto';
 import { CouponWithRelationsResponseDto } from './dto/coupon-with-relations-response.dto';
+import { CouponValidationResponseDto } from './dto/coupon-validation-response.dto';
 import { isAfter } from 'date-fns';
+import { CouponType } from './entities/coupon-type.enum';
 
 /**
  * Coupons Service
@@ -56,6 +58,21 @@ export class CouponsService {
   }
 
   /**
+   * Validate coupon value based on type
+   *
+   * @param type Coupon type
+   * @param value Coupon value
+   * @throws BadRequestException if percentage coupon value exceeds 100
+   */
+  private validateCouponValue(type: CouponType, value: number): void {
+    if (type === CouponType.PERCENTAGE && value > 100) {
+      throw new BadRequestException(
+        'Percentage coupon value cannot exceed 100',
+      );
+    }
+  }
+
+  /**
    * Create a new coupon
    *
    * @param createCouponDto Coupon creation data
@@ -64,6 +81,8 @@ export class CouponsService {
   async create(createCouponDto: CreateCouponDto): Promise<CouponResponseDto> {
     try {
       await this.checkCouponCodeExists(createCouponDto.code);
+
+      this.validateCouponValue(createCouponDto.type, createCouponDto.value);
 
       const coupon = this.couponsRepository.create({
         ...createCouponDto,
@@ -198,12 +217,12 @@ export class CouponsService {
    *
    * @param code Coupon code
    * @param orderAmount Order amount
-   * @returns Validated coupon
+   * @returns Coupon validation response
    */
   async validateCoupon(
     code: string,
     orderAmount: number,
-  ): Promise<CouponResponseDto> {
+  ): Promise<CouponValidationResponseDto> {
     try {
       const coupon = await this.couponsRepository.findOne({
         where: { code },
@@ -214,44 +233,84 @@ export class CouponsService {
       }
 
       if (!coupon.isActive) {
-        throw new BadRequestException(`Coupon '${code}' is inactive`);
+        return {
+          valid: false,
+          message: `Coupon '${code}' is inactive`,
+        };
       }
       const now = new Date();
-      if (coupon.expiryDate && coupon.expiryDate < now) {
-        throw new BadRequestException(`Coupon '${code}' has expired`);
+      if (coupon.expiryDate && isAfter(new Date(), coupon.expiryDate)) {
+        return {
+          valid: false,
+          message: `Coupon '${code}' has expired`,
+        };
       }
 
       if (coupon.startDate && coupon.startDate > now) {
         throw new BadRequestException(`Coupon '${code}' is not yet active`);
       }
       if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) {
-        throw new BadRequestException(
-          `Coupon '${code}' has reached its usage limit`,
-        );
+        return {
+          valid: false,
+          message: `Coupon '${code}' has reached its usage limit`,
+        };
       }
 
       if (
         coupon.minimumOrderAmount &&
         orderAmount < coupon.minimumOrderAmount
       ) {
-        throw new BadRequestException(
-          `Order amount does not meet the minimum requirement of ${coupon.minimumOrderAmount} for coupon '${code}'`,
-        );
+        return {
+          valid: false,
+          message: `Order amount does not meet the minimum requirement of $${coupon.minimumOrderAmount} for coupon '${code}'`,
+        };
       }
 
-      return coupon;
+      if (coupon.type === CouponType.PERCENTAGE && coupon.value > 100) {
+        return {
+          valid: false,
+          message: `Coupon '${code}' has an invalid percentage value. Percentage cannot exceed 100%`,
+        };
+      }
+
+      let discountAmount = 0;
+
+      switch (coupon.type) {
+        case CouponType.PERCENTAGE:
+          discountAmount = (orderAmount * coupon.value) / 100;
+          if (
+            coupon.maximumDiscountAmount &&
+            discountAmount > coupon.maximumDiscountAmount
+          ) {
+            discountAmount = coupon.maximumDiscountAmount;
+          }
+          break;
+        case CouponType.FIXED:
+          discountAmount = coupon.value;
+          break;
+        case CouponType.BOGO:
+          discountAmount = 0;
+          break;
+        default:
+          discountAmount = 0;
+      }
+      return {
+        valid: true,
+        coupon,
+        discountAmount,
+        message: `Coupon '${code}' applied successfully`,
+      };
     } catch (err) {
-      return handleError(
-        err,
-        [NotFoundException, BadRequestException],
-        `Failed to validate coupon with code ${code}`,
-        () => {
-          this.logger.logError(err, 'CouponsService.validateCoupon', {
-            code,
-            orderAmount,
-          });
-        },
-      );
+      this.logger.logError(err, 'CouponsService.validateCoupon', {
+        code,
+        orderAmount,
+      });
+
+      return {
+        valid: false,
+        message:
+          err instanceof Error ? err.message : 'Failed to validate coupon',
+      };
     }
   }
 
@@ -286,6 +345,15 @@ export class CouponsService {
       if (updateCouponDto.code) {
         await this.checkCouponCodeExists(updateCouponDto.code, id);
       }
+
+      const couponType = updateCouponDto.type || oldCoupon.type;
+      const couponValue =
+        updateCouponDto.value !== undefined
+          ? updateCouponDto.value
+          : oldCoupon.value;
+
+      this.validateCouponValue(couponType, couponValue);
+
       const updatedCoupon = await this.couponsRepository.preload({
         id,
         ...updateCouponDto,

@@ -28,6 +28,7 @@ import { CustomLoggerService } from '../../logger/logger.service';
 import { CouponResponseDto } from './dto/coupon-response.dto';
 import { CouponWithRelationsResponseDto } from './dto/coupon-with-relations-response.dto';
 import { isBefore } from 'date-fns';
+import { CouponValidationResponseDto } from './dto/coupon-validation-response.dto';
 
 /**
  * Coupons Controller
@@ -240,7 +241,7 @@ export class CouponsController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Coupon is valid',
-    type: CouponResponseDto,
+    type: CouponValidationResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -252,12 +253,17 @@ export class CouponsController {
   })
   async validateCoupon(
     @Param('code') code: string,
-    @Query('orderAmount', ParseIntPipe) orderAmount: number,
-  ): Promise<CouponResponseDto> {
+    @Query('orderAmount') orderAmount: string,
+  ): Promise<CouponValidationResponseDto> {
+    // Parse orderAmount as float to handle decimal values
+    const parsedAmount = parseFloat(orderAmount);
+    if (isNaN(parsedAmount)) {
+      throw new BadRequestException('Order amount must be a valid number');
+    }
     this.logger.log(
-      `Validating coupon with code: ${code} for amount: ${orderAmount}`,
+      `Validating coupon with code: ${code} for amount: ${parsedAmount}`,
     );
-    return await this.couponsService.validateCoupon(code, orderAmount);
+    return await this.couponsService.validateCoupon(code, parsedAmount);
   }
 
   /**

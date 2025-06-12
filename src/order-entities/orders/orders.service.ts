@@ -144,11 +144,19 @@ export class OrdersService {
       let couponId: number | undefined = undefined;
       if (createOrderDto.couponCode) {
         try {
-          const validCoupon = await this.couponsService.validateCoupon(
+          const validationResponse = await this.couponsService.validateCoupon(
             createOrderDto.couponCode,
             createOrderDto.totalAmount,
           );
-          couponId = validCoupon.id;
+
+          if (!validationResponse.valid || !validationResponse.coupon) {
+            throw new BadRequestException(
+              validationResponse.message ||
+                `Invalid coupon: ${createOrderDto.couponCode}`,
+            );
+          }
+
+          couponId = validationResponse.coupon.id;
         } catch (error: unknown) {
           const errorMessage =
             error instanceof Error ? error.message : 'Unknown error';
@@ -293,6 +301,29 @@ export class OrdersService {
 
       if (!order) {
         throw new NotFoundException(`Order with ID ${id} not found`);
+      }
+
+      // Handle coupon code update if provided
+      if (updateOrderDto.couponCode) {
+        try {
+          const validationResponse = await this.couponsService.validateCoupon(
+            updateOrderDto.couponCode,
+            updateOrderDto.totalAmount || order.totalAmount,
+          );
+
+          if (!validationResponse.valid || !validationResponse.coupon) {
+            throw new BadRequestException(
+              validationResponse.message ||
+                `Invalid coupon: ${updateOrderDto.couponCode}`,
+            );
+          }
+
+          order.couponId = validationResponse.coupon.id;
+        } catch (error: unknown) {
+          const errorMessage =
+            error instanceof Error ? error.message : 'Unknown error';
+          throw new BadRequestException(`Invalid coupon: ${errorMessage}`);
+        }
       }
 
       if (updateOrderDto.userId) {
