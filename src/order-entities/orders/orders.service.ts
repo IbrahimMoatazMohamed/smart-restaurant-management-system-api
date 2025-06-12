@@ -472,4 +472,40 @@ export class OrdersService {
       });
     }
   }
+
+  /**
+   * Find orders by user ID
+   *
+   * @param userId User ID
+   * @returns List of orders for the specified user
+   */
+  async findByUserId(userId: number): Promise<Order[]> {
+    try {
+      await this.validateUserExists(userId);
+
+      return await this.ordersRepository.find({
+        where: { userId },
+        relations: [
+          'user',
+          'table',
+          'coupon',
+          'orderMealItems',
+          'orderMealItems.meal',
+          'orderMealItems.item',
+        ],
+        order: {
+          createdAt: 'DESC',
+        },
+      });
+    } catch (err) {
+      return handleError(
+        err,
+        [BadRequestException, NotFoundException],
+        `Failed to retrieve orders for user with ID ${userId}`,
+        () => {
+          this.logger.logError(err, 'OrdersService.findByUserId', { userId });
+        },
+      );
+    }
+  }
 }

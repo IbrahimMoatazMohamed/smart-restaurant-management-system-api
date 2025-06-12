@@ -94,6 +94,41 @@ export class OrdersController {
   }
 
   /**
+   * Get orders by user ID
+   *
+   * @param userId User ID
+   * @returns List of orders for the specified user
+   */
+  @Get('user/:userId')
+  @ApiOperation({ summary: 'Get orders by user ID' })
+  @ApiParam({ name: 'userId', description: 'User ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'List of orders for the specified user.',
+    type: [OrderResponseDto],
+  })
+  @ApiNotFoundResponse({
+    description: 'User not found or no orders found for this user.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to retrieve orders.',
+  })
+  async findByUserId(
+    @Param('userId') userId: string,
+  ): Promise<OrderResponseDto[]> {
+    this.logger.log(`Retrieving orders for user with ID: ${userId}`);
+
+    try {
+      return await this.ordersService.findByUserId(+userId);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Error retrieving orders for user: ${errorMessage}`);
+      throw error;
+    }
+  }
+
+  /**
    * Get an order by ID
    *
    * @param id Order ID

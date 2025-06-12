@@ -63,10 +63,8 @@ export class CouponsService {
    */
   async create(createCouponDto: CreateCouponDto): Promise<CouponResponseDto> {
     try {
-      // Check if coupon code already exists
       await this.checkCouponCodeExists(createCouponDto.code);
 
-      // Create and save the coupon
       const coupon = this.couponsRepository.create({
         ...createCouponDto,
         usageCount: 0,
@@ -103,16 +101,12 @@ export class CouponsService {
       const now = new Date();
       let whereClause: Record<string, any> = {};
 
-      // Filter by active status if specified
       if (active !== undefined) {
         whereClause.isActive = active;
       }
-
-      // Filter by validity if specified
       if (valid) {
         whereClause = {
           ...whereClause,
-          // Not expired or no expiry date
           expiryDate: MoreThanOrEqual(now),
         };
       }
@@ -121,7 +115,6 @@ export class CouponsService {
         where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
       });
 
-      // Additional filtering for usage limit
       const filteredCoupons = valid
         ? coupons.filter(
             (coupon) =>
@@ -220,30 +213,23 @@ export class CouponsService {
         throw new NotFoundException(`Coupon with code '${code}' not found`);
       }
 
-      // Check if coupon is active
       if (!coupon.isActive) {
         throw new BadRequestException(`Coupon '${code}' is inactive`);
       }
-
-      // Check if coupon has expired
       const now = new Date();
       if (coupon.expiryDate && coupon.expiryDate < now) {
         throw new BadRequestException(`Coupon '${code}' has expired`);
       }
 
-      // Check if coupon has started
       if (coupon.startDate && coupon.startDate > now) {
         throw new BadRequestException(`Coupon '${code}' is not yet active`);
       }
-
-      // Check if usage limit is reached
       if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) {
         throw new BadRequestException(
           `Coupon '${code}' has reached its usage limit`,
         );
       }
 
-      // Check minimum order amount
       if (
         coupon.minimumOrderAmount &&
         orderAmount < coupon.minimumOrderAmount
@@ -281,7 +267,6 @@ export class CouponsService {
     updateCouponDto: UpdateCouponDto,
   ): Promise<CouponResponseDto> {
     try {
-      // Check if the coupon exists
       const oldCoupon = await this.findOne(id);
 
       if (updateCouponDto.expiryDate && !updateCouponDto.startDate) {
@@ -298,12 +283,9 @@ export class CouponsService {
         }
       }
 
-      // Check if coupon code is being updated and if it already exists
       if (updateCouponDto.code) {
         await this.checkCouponCodeExists(updateCouponDto.code, id);
       }
-
-      // Update the coupon
       const updatedCoupon = await this.couponsRepository.preload({
         id,
         ...updateCouponDto,
@@ -368,7 +350,6 @@ export class CouponsService {
    */
   async remove(id: number): Promise<void> {
     try {
-      // Get coupon with relations to check if it has associated orders
       const couponWithRelations = await this.couponsRepository.findOne({
         where: { id },
         relations: ['orders'],
@@ -378,7 +359,6 @@ export class CouponsService {
         throw new NotFoundException(`Coupon with ID ${id} not found`);
       }
 
-      // Check if coupon has associated orders
       if (couponWithRelations.orders && couponWithRelations.orders.length > 0) {
         throw new BadRequestException(
           `Cannot delete coupon with ID ${id} because it has associated orders`,
