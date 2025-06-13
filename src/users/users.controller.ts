@@ -4,12 +4,10 @@ import {
   Post,
   Body,
   Patch,
-  Param,
   Delete,
   HttpStatus,
   HttpCode,
   UseGuards,
-  UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
 import {
@@ -32,12 +30,11 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { CustomLoggerService } from '../logger/logger.service';
 import { UserResponseDto } from './dto/user-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { AdminRoleGuard } from '../auth/guards/admin-role.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { AdminOnly } from '../auth/decorators/roles.decorator';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-import { FileUploadService } from 'src/file-upload/file-upload.service';
+import { MeOrAdmin } from 'src/auth/decorators/me-or-admin.decorator';
+import { ImageUpload } from 'src/file-upload/decorators/image-upload.decorator';
+import { ImageUploadHelper } from 'src/file-upload/helpers/image-upload.helper';
 
 /**
  * Users Controller
@@ -55,7 +52,7 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly logger: CustomLoggerService,
-    private readonly fileUploadService: FileUploadService,
+    private readonly imageUploadHelper: ImageUploadHelper,
   ) {
     this.logger.setContext('UsersController');
   }
@@ -67,6 +64,9 @@ export class UsersController {
    * @returns Created user
    */
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
+  @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new user' })
   @ApiResponse({
@@ -94,7 +94,7 @@ export class UsersController {
    * @returns List of all users
    */
   @Get()
-  @UseGuards(JwtAuthGuard, AdminRoleGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all users (Admin only)' })
@@ -120,9 +120,11 @@ export class UsersController {
    * @param id User ID
    * @returns User
    */
-  @Get(':id')
+  @Get(':userId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get a user by ID' })
-  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiParam({ name: 'userId', description: 'User ID' })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'User found.',
@@ -134,21 +136,23 @@ export class UsersController {
   @ApiInternalServerErrorResponse({
     description: 'Failed to retrieve user.',
   })
-  async findOne(@Param('id') id: string): Promise<UserResponseDto> {
-    this.logger.log(`Retrieving user with ID: ${id}`);
-    return await this.usersService.findOne(+id);
+  async findOne(@MeOrAdmin() userId: number): Promise<UserResponseDto> {
+    this.logger.log(`Retrieving user with ID: ${userId}`);
+    return await this.usersService.findOne(userId);
   }
 
   /**
    * Update a user
    *
-   * @param id User ID
+   * @param userId User ID
    * @param updateUserDto User update data
    * @returns Updated user
    */
-  @Patch(':id')
+  @Patch(':userId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update a user' })
-  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiParam({ name: 'userId', description: 'User ID' })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'User has been successfully updated.',
@@ -167,25 +171,23 @@ export class UsersController {
     description: 'Failed to update user.',
   })
   async update(
-    @Param('id') id: string,
+    @MeOrAdmin() userId: number,
     @Body() updateUserDto: UpdateUserDto,
   ): Promise<UserResponseDto> {
-    this.logger.log(`Updating user with ID: ${id}`);
-    return await this.usersService.update(+id, updateUserDto);
+    this.logger.log(`Updating user with ID: ${userId}`);
+    return await this.usersService.update(userId, updateUserDto);
   }
 
   /**
    * Delete a user
    *
-   * @param id User ID
+   * @param userId User ID
    */
-  @Delete(':id')
-  @UseGuards(JwtAuthGuard, AdminRoleGuard)
-  @AdminOnly()
+  @Delete(':userId')
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a user (Admin only)' })
-  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiOperation({ summary: 'Delete a user' })
+  @ApiParam({ name: 'userId', description: 'User ID' })
   @ApiResponse({
     status: HttpStatus.NO_CONTENT,
     description: 'User has been successfully deleted.',
@@ -199,9 +201,54 @@ export class UsersController {
   @ApiInternalServerErrorResponse({
     description: 'Failed to delete user.',
   })
-  async remove(@Param('id') id: string): Promise<void> {
-    this.logger.log(`Deleting user with ID: ${id}`);
-    await this.usersService.remove(+id);
+  async remove(@MeOrAdmin() userId: number): Promise<void> {
+    this.logger.log(`Deleting user with ID: ${userId}`);
+    await this.usersService.remove(userId);
+  }
+
+  /**
+   * Upload a profile image for a user
+   *
+   * @param userId User ID
+   * @param file Image file
+   * @returns Object with image URL
+   */
+  @Post(':userId/image')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Upload a profile image' })
+  @ApiParam({ name: 'userId', description: 'User ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Profile image uploaded successfully.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid input data.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to upload profile image.',
+  })
+  @ImageUpload('')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Update meal with optional image upload',
+    schema: {
+      type: 'object',
+      properties: {
+        photo: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async uploadProfileImage(
+    @MeOrAdmin() userId: number,
+    @UploadedFile() photo: Express.Multer.File,
+  ) {
+    this.logger.log(`Uploading profile image for user with ID: ${userId}`);
+    const imageUrl = this.imageUploadHelper.extractImageUrl(photo);
+    return await this.usersService.updateProfileImage(userId, imageUrl);
   }
 
   /**

@@ -29,6 +29,11 @@ import { CouponResponseDto } from './dto/coupon-response.dto';
 import { CouponWithRelationsResponseDto } from './dto/coupon-with-relations-response.dto';
 import { isBefore } from 'date-fns';
 import { CouponValidationResponseDto } from './dto/coupon-validation-response.dto';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { AdminOnly } from 'src/auth/decorators/roles.decorator';
+import { ApiBearerAuth } from '@nestjs/swagger';
+import { UseGuards } from '@nestjs/common';
 
 /**
  * Coupons Controller
@@ -56,7 +61,10 @@ export class CouponsController {
    * @param createCouponDto Coupon creation data
    * @returns Created coupon
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Post()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Create a new coupon' })
   @ApiBody({ type: CreateCouponDto })
   @ApiResponse({
@@ -77,7 +85,6 @@ export class CouponsController {
   ): Promise<CouponResponseDto> {
     this.logger.log(`Creating new coupon with code: ${createCouponDto.code}`);
 
-    // Validate that start date is before expiry date
     if (createCouponDto.startDate && createCouponDto.expiryDate) {
       if (!isBefore(createCouponDto.startDate, createCouponDto.expiryDate)) {
         throw new BadRequestException('Start date must be before expiry date');
@@ -94,7 +101,10 @@ export class CouponsController {
    * @param valid Optional filter for valid coupons (not expired and not exceeded usage limit)
    * @returns List of coupons
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all coupons' })
   @ApiQuery({
     name: 'active',
@@ -131,7 +141,10 @@ export class CouponsController {
    * @param includeRelations Whether to include relations
    * @returns Coupon
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get(':id')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get a coupon by ID' })
   @ApiParam({
     name: 'id',
@@ -172,7 +185,10 @@ export class CouponsController {
    * @param updateCouponDto Coupon update data
    * @returns Updated coupon
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Patch(':id')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update a coupon' })
   @ApiParam({
     name: 'id',
@@ -224,7 +240,9 @@ export class CouponsController {
    * @param orderAmount Order amount
    * @returns Validated coupon
    */
+  @UseGuards(JwtAuthGuard)
   @Get('validate/:code')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Validate a coupon' })
   @ApiParam({
     name: 'code',
@@ -255,7 +273,6 @@ export class CouponsController {
     @Param('code') code: string,
     @Query('orderAmount') orderAmount: string,
   ): Promise<CouponValidationResponseDto> {
-    // Parse orderAmount as float to handle decimal values
     const parsedAmount = parseFloat(orderAmount);
     if (isNaN(parsedAmount)) {
       throw new BadRequestException('Order amount must be a valid number');
@@ -271,8 +288,11 @@ export class CouponsController {
    *
    * @param id Coupon ID
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Delete a coupon' })
   @ApiParam({
     name: 'id',

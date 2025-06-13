@@ -4,6 +4,7 @@ import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { ImageUploadHelper } from './helpers/image-upload.helper';
 
 @Module({
   imports: [
@@ -28,7 +29,7 @@ import { v4 as uuidv4 } from 'uuid';
       },
     }),
   ],
-  providers: [FileUploadService],
-  exports: [FileUploadService],
+  providers: [FileUploadService, ImageUploadHelper],
+  exports: [FileUploadService, ImageUploadHelper],
 })
 export class FileUploadModule {}

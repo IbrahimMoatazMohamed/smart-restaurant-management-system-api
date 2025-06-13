@@ -8,6 +8,7 @@ import {
   Delete,
   HttpStatus,
   HttpCode,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -23,6 +24,11 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { OrderResponseDto } from './dto/order-response.dto';
+import { MeOrAdmin } from 'src/auth/decorators/me-or-admin.decorator';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { AdminOnly } from 'src/auth/decorators/roles.decorator';
+import { ApiBearerAuth } from '@nestjs/swagger';
 
 /**
  * Orders Controller
@@ -50,8 +56,10 @@ export class OrdersController {
    * @param createOrderDto Order creation data
    * @returns Created order
    */
+  @UseGuards(JwtAuthGuard)
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Create a new order' })
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -77,7 +85,10 @@ export class OrdersController {
    *
    * @returns List of all orders
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all orders' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -99,7 +110,9 @@ export class OrdersController {
    * @param userId User ID
    * @returns List of orders for the specified user
    */
+  @UseGuards(JwtAuthGuard)
   @Get('user/:userId')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get orders by user ID' })
   @ApiParam({ name: 'userId', description: 'User ID' })
   @ApiResponse({
@@ -113,9 +126,7 @@ export class OrdersController {
   @ApiInternalServerErrorResponse({
     description: 'Failed to retrieve orders.',
   })
-  async findByUserId(
-    @Param('userId') userId: string,
-  ): Promise<OrderResponseDto[]> {
+  async findByUserId(@MeOrAdmin() userId: string): Promise<OrderResponseDto[]> {
     this.logger.log(`Retrieving orders for user with ID: ${userId}`);
 
     try {
@@ -134,7 +145,10 @@ export class OrdersController {
    * @param id Order ID
    * @returns Order
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get(':id')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get an order by ID' })
   @ApiParam({ name: 'id', description: 'Order ID' })
   @ApiResponse({
@@ -161,7 +175,10 @@ export class OrdersController {
    * @param updateOrderDto Order update data
    * @returns Updated order
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Patch(':id')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update an order' })
   @ApiParam({ name: 'id', description: 'Order ID' })
   @ApiResponse({
@@ -192,7 +209,10 @@ export class OrdersController {
    *
    * @param id Order ID
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Delete(':id')
+  @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete an order' })
   @ApiParam({ name: 'id', description: 'Order ID' })

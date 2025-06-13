@@ -12,12 +12,12 @@ async function bootstrap() {
       'http://localhost:8080',
       'http://localhost:5173',
       'http://localhost:8081',
-    ], // Add frontend URLs
+      process.env.FRONTEND_URL,
+    ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     credentials: true,
   });
 
-  // Add global prefix for all routes
   app.setGlobalPrefix('api');
 
   app.useGlobalPipes(

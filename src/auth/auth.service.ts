@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
@@ -17,6 +18,9 @@ interface UserWithoutPassword {
   email: string;
   name: string;
   role: string;
+  phone: string;
+  gender: string;
+  country: string;
   [key: string]: any;
 }
 
@@ -45,10 +49,15 @@ export class AuthService {
       if (!isPasswordValid) {
         throw new UnauthorizedException('Invalid credentials');
       }
+
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password: passwordField, ...result } = user;
       return result;
     } catch (err) {
+      if (err instanceof NotFoundException) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      
       return handleError(
         err,
         [UnauthorizedException],
@@ -80,13 +89,18 @@ export class AuthService {
           id: user.id,
           email: user.email,
           name: user.name,
+          phone: user.phone,
+          gender: user.gender,
+          country: user.country,
+          imageUrl: user.imageUrl,
           role: user.role,
         },
       };
     } catch (err) {
       return handleError(
         err,
-        [UnauthorizedException],
+        [UnauthorizedException, ForbiddenException],
+
         'Failed to login',
         () => {
           this.logger.logError(err, 'AuthService.login', {
@@ -131,6 +145,10 @@ export class AuthService {
           id: user.id,
           email: user.email,
           name: user.name,
+          phone: user.phone,
+          gender: user.gender,
+          country: user.country,
+          imageUrl: user.imageUrl,
           role: user.role,
         },
       };

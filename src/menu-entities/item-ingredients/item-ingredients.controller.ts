@@ -9,6 +9,7 @@ import {
   HttpStatus,
   ParseIntPipe,
   HttpCode,
+  UseGuards,
 } from '@nestjs/common';
 import { ItemIngredientsService } from './item-ingredients.service';
 import { CreateItemIngredientDto } from './dto/create-item-ingredient.dto';
@@ -23,8 +24,12 @@ import {
   ApiNotFoundResponse,
   ApiConflictResponse,
   ApiBadRequestResponse,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { ItemIngredientWithRelationsResponseDto } from './dto/item-ingredients-with-relations-response.dto';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { AdminOnly } from 'src/auth/decorators/roles.decorator';
 
 /**
  * Item Ingredients Controller
@@ -50,7 +55,11 @@ export class ItemIngredientsController {
    * @param createItemIngredientDto Item ingredient creation data
    * @returns Created item ingredient
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Create a new item ingredient' })
   @ApiBody({ type: CreateItemIngredientDto })
   @ApiResponse({
@@ -79,7 +88,11 @@ export class ItemIngredientsController {
    *
    * @returns List of all item ingredients
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get()
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all item ingredients' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -99,7 +112,11 @@ export class ItemIngredientsController {
    * @param id Item ingredient ID
    * @returns The found item ingredient
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get an item ingredient by ID' })
   @ApiParam({ name: 'id', description: 'Item ingredient ID' })
   @ApiResponse({
@@ -123,7 +140,11 @@ export class ItemIngredientsController {
    * @param itemId Item ID
    * @returns List of ingredients for the specified item
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get('item/:itemId')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all ingredients for a specific item' })
   @ApiParam({ name: 'itemId', description: 'Item ID' })
   @ApiResponse({
@@ -147,7 +168,11 @@ export class ItemIngredientsController {
    * @param ingredientId Ingredient ID
    * @returns List of items using the specified ingredient
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get('ingredient/:ingredientId')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all items using a specific ingredient' })
   @ApiParam({ name: 'ingredientId', description: 'Ingredient ID' })
   @ApiResponse({
@@ -174,7 +199,11 @@ export class ItemIngredientsController {
    * @param updateItemIngredientDto Item ingredient update data
    * @returns The updated item ingredient
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Patch(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update an item ingredient' })
   @ApiParam({ name: 'id', description: 'Item ingredient ID' })
   @ApiBody({ type: UpdateItemIngredientDto })
@@ -208,8 +237,11 @@ export class ItemIngredientsController {
    * @param id Item ingredient ID
    * @returns Void
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Remove an item ingredient' })
   @ApiParam({ name: 'id', description: 'Item ingredient ID' })
   @ApiResponse({

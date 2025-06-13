@@ -22,6 +22,11 @@ import { IngredientCategoriesService } from './ingredient-categories.service';
 import { CreateIngredientCategoryDto } from './dto/create-ingredient-category.dto';
 import { UpdateIngredientCategoryDto } from './dto/update-ingredient-category.dto';
 import { IngredientCategory } from './entities/ingredient-category.entity';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { AdminOnly } from 'src/auth/decorators/roles.decorator';
+import { ApiBearerAuth } from '@nestjs/swagger';
+import { UseGuards } from '@nestjs/common';
 
 @ApiTags('ingredient-categories')
 @Controller('ingredient-categories')
@@ -30,7 +35,10 @@ export class IngredientCategoriesController {
     private readonly ingredientCategoriesService: IngredientCategoriesService,
   ) {}
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Post()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Create a new ingredient category' })
   @ApiBody({ type: CreateIngredientCategoryDto })
   @ApiResponse({
@@ -49,7 +57,10 @@ export class IngredientCategoriesController {
     return this.ingredientCategoriesService.create(createIngredientCategoryDto);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all ingredient categories' })
   @ApiQuery({
     name: 'includeDeleted',
@@ -85,7 +96,10 @@ export class IngredientCategoriesController {
     );
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get('soft-deleted')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all soft-deleted ingredient categories' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -96,7 +110,10 @@ export class IngredientCategoriesController {
     return this.ingredientCategoriesService.findAllSoftDeleted();
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get(':id')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get a specific ingredient category by ID' })
   @ApiParam({ name: 'id', description: 'Ingredient category ID' })
   @ApiResponse({
@@ -116,7 +133,10 @@ export class IngredientCategoriesController {
     return this.ingredientCategoriesService.findOne(categoryId);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Patch(':id')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update an ingredient category' })
   @ApiParam({ name: 'id', description: 'Ingredient category ID' })
   @ApiBody({ type: UpdateIngredientCategoryDto })
@@ -155,7 +175,10 @@ export class IngredientCategoriesController {
     );
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Delete(':id')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Remove an ingredient category (hard delete)' })
   @ApiParam({ name: 'id', description: 'Ingredient category ID' })
   @ApiResponse({
@@ -180,7 +203,10 @@ export class IngredientCategoriesController {
     return this.ingredientCategoriesService.remove(categoryId);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Delete(':id/soft-delete')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Soft delete an ingredient category' })
   @ApiParam({ name: 'id', description: 'Ingredient category ID' })
   @ApiResponse({
@@ -200,7 +226,10 @@ export class IngredientCategoriesController {
     return this.ingredientCategoriesService.softDelete(categoryId);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Post(':id/restore')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Restore a soft-deleted ingredient category' })
   @ApiParam({ name: 'id', description: 'Ingredient category ID' })
   @ApiResponse({

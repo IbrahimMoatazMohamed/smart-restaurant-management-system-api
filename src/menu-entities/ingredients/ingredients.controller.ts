@@ -8,6 +8,7 @@ import {
   Delete,
   HttpStatus,
   HttpCode,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -19,6 +20,7 @@ import {
   ApiInternalServerErrorResponse,
   ApiBadRequestResponse,
   getSchemaPath,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { IngredientsService } from './ingredients.service';
 import { CreateIngredientDto } from './dto/create-ingredient.dto';
@@ -27,6 +29,9 @@ import { Ingredient } from './entities/ingredient.entity';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { UpdateQuantityDto } from './dto/update-quantity.dto';
 import { IngredientResponseDto } from './dto/ingredient-response.dto';
+import { AdminOnly } from 'src/auth/decorators/roles.decorator';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
 
 /**
  * Ingredients Controller
@@ -54,8 +59,11 @@ export class IngredientsController {
    * @param createIngredientDto Ingredient creation data
    * @returns Created ingredient
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Create a new ingredient' })
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -86,7 +94,11 @@ export class IngredientsController {
    *
    * @returns List of all ingredients
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get()
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all ingredients' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -108,7 +120,11 @@ export class IngredientsController {
    * @param id Ingredient ID
    * @returns Ingredient
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get an ingredient by ID' })
   @ApiParam({ name: 'id', description: 'Ingredient ID' })
   @ApiResponse({
@@ -135,7 +151,11 @@ export class IngredientsController {
    * @param updateIngredientDto Ingredient update data
    * @returns Updated ingredient
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Patch(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update an ingredient' })
   @ApiParam({ name: 'id', description: 'Ingredient ID' })
   @ApiResponse({
@@ -170,8 +190,11 @@ export class IngredientsController {
    *
    * @param id Ingredient ID
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Delete an ingredient' })
   @ApiParam({ name: 'id', description: 'Ingredient ID' })
   @ApiResponse({
@@ -197,7 +220,11 @@ export class IngredientsController {
    * @param updateQuantityDto Quantity update data
    * @returns Updated ingredient
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Patch(':id/increase')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Increase ingredient quantity' })
   @ApiParam({ name: 'id', description: 'Ingredient ID' })
   @ApiResponse({
@@ -238,7 +265,11 @@ export class IngredientsController {
    * @param updateQuantityDto Quantity update data
    * @returns Updated ingredient with warning flag
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Patch(':id/decrease')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Decrease ingredient quantity' })
   @ApiParam({ name: 'id', description: 'Ingredient ID' })
   @ApiResponse({
