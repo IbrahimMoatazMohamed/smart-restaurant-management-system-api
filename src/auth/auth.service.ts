@@ -18,6 +18,9 @@ interface UserWithoutPassword {
   email: string;
   name: string;
   role: string;
+  phone: string;
+  gender: string;
+  country: string;
   [key: string]: any;
 }
 
@@ -46,6 +49,7 @@ export class AuthService {
       if (!isPasswordValid) {
         throw new UnauthorizedException('Invalid credentials');
       }
+
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password: passwordField, ...result } = user;
       return result;
@@ -84,6 +88,10 @@ export class AuthService {
           id: user.id,
           email: user.email,
           name: user.name,
+          phone: user.phone,
+          gender: user.gender,
+          country: user.country,
+          imageUrl: user.imageUrl,
           role: user.role,
         },
       };
@@ -135,6 +143,10 @@ export class AuthService {
           id: user.id,
           email: user.email,
           name: user.name,
+          phone: user.phone,
+          gender: user.gender,
+          country: user.country,
+          imageUrl: user.imageUrl,
           role: user.role,
         },
       };
