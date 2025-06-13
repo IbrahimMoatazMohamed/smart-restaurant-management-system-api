@@ -5,10 +5,13 @@ import {
   UpdateDateColumn,
   CreateDateColumn,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import Measurement from '../types/measurement.enum';
 import { ItemIngredient } from '../../item-ingredients/entities/item-ingredient.entity';
+import { IngredientCategory } from '../../ingredient-categories/entities/ingredient-category.entity';
 
 @Entity('ingredients')
 export class Ingredient {
@@ -57,4 +60,18 @@ export class Ingredient {
   @UpdateDateColumn({ name: 'updated_at' })
   @ApiProperty({ description: 'The last update date of the ingredient record' })
   updatedAt: Date;
+
+  @Column({ nullable: true })
+  @ApiProperty({
+    description: 'The ID of the category this ingredient belongs to',
+  })
+  categoryId: number;
+
+  @ManyToOne(() => IngredientCategory, (category) => category.ingredients)
+  @JoinColumn({ name: 'categoryId' })
+  @ApiProperty({
+    description: 'The category this ingredient belongs to',
+    type: () => IngredientCategory,
+  })
+  category: IngredientCategory;
 }

@@ -4,6 +4,8 @@ import {
   NotFoundException,
   BadRequestException,
   InternalServerErrorException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, In } from 'typeorm';
@@ -23,6 +25,7 @@ export class ItemIngredientsService {
   constructor(
     @InjectRepository(ItemIngredient)
     private readonly itemIngredientsRepository: Repository<ItemIngredient>,
+    @Inject(forwardRef(() => ItemsService))
     private readonly itemsService: ItemsService,
     private readonly ingredientsService: IngredientsService,
     private readonly logger: CustomLoggerService,
@@ -43,7 +46,6 @@ export class ItemIngredientsService {
         `Creating item ingredient: Item ID ${createItemIngredientDto.itemId}, Ingredient ID ${createItemIngredientDto.ingredientId}`,
       );
 
-      // Validate that both the item and ingredient exist
       await validateEntityExists(
         createItemIngredientDto.itemId,
         this.itemsService,
@@ -62,7 +64,6 @@ export class ItemIngredientsService {
         await this.itemIngredientsRepository.save(itemIngredient);
       return this.findOne(savedItemIngredient.id);
     } catch (error) {
-      // Handle duplicate entry errors
       handleDuplicateEntryError(
         error,
         `Item ingredient with Item ID ${createItemIngredientDto.itemId} and Ingredient ID ${createItemIngredientDto.ingredientId} already exists`,
@@ -161,9 +162,7 @@ export class ItemIngredientsService {
 
       const itemIngredient = await this.findOne(id);
 
-      // Map DTO fields to entity fields
       if (updateItemIngredientDto.itemId !== undefined) {
-        // Validate that the item exists using ItemsService
         await validateEntityExists(
           updateItemIngredientDto.itemId,
           this.itemsService,
@@ -193,7 +192,6 @@ export class ItemIngredientsService {
       await this.itemIngredientsRepository.save(itemIngredient);
       return this.findOne(id);
     } catch (error) {
-      // Handle duplicate entry errors
       handleDuplicateEntryError(
         error,
         `Item ingredient with Item ID ${updateItemIngredientDto.itemId} and Ingredient ID ${updateItemIngredientDto.ingredientId} already exists`,
@@ -263,11 +261,9 @@ export class ItemIngredientsService {
     itemIngredients: Partial<ItemIngredient>[],
   ): Promise<ItemIngredient[]> {
     try {
-      // Validate all items and ingredients exist before saving
       const itemIds = new Set<number>();
       const ingredientIds = new Set<number>();
 
-      // Collect all unique item and ingredient IDs
       for (const itemIngredient of itemIngredients) {
         if (itemIngredient.item_id) {
           itemIds.add(itemIngredient.item_id);
@@ -277,12 +273,9 @@ export class ItemIngredientsService {
         }
       }
 
-      // Validate all items exist
       for (const itemId of itemIds) {
         await validateEntityExists(itemId, this.itemsService, 'Item');
       }
-
-      // Validate all ingredients exist
       for (const ingredientId of ingredientIds) {
         await validateEntityExists(
           ingredientId,
@@ -291,13 +284,10 @@ export class ItemIngredientsService {
         );
       }
 
-      // Check for duplicate item-ingredient combinations
       const existingCombinations = new Map<string, boolean>();
       for (const itemIngredient of itemIngredients) {
         if (itemIngredient.item_id && itemIngredient.ingredient_id) {
           const key = `${itemIngredient.item_id}-${itemIngredient.ingredient_id}`;
-
-          // Check if this combination already exists in the database
           const existingRelation = await this.itemIngredientsRepository.findOne(
             {
               where: {
@@ -307,14 +297,12 @@ export class ItemIngredientsService {
             },
           );
 
-          // Skip validation for existing records being updated (they have an ID)
           if (existingRelation) {
             throw new ConflictException(
               `Relation between item ID ${itemIngredient.item_id} and ingredient ID ${itemIngredient.ingredient_id} already exists`,
             );
           }
 
-          // Check for duplicates within the current batch
           if (existingCombinations.has(key)) {
             throw new ConflictException(
               `Duplicate item-ingredient combination in batch: Item ID ${itemIngredient.item_id} and Ingredient ID ${itemIngredient.ingredient_id}`,
@@ -350,18 +338,95 @@ export class ItemIngredientsService {
   async upsert(
     itemIngredients: Partial<ItemIngredient>[],
   ): Promise<ItemIngredient[]> {
-    const conflictPaths = ['item_id', 'ingredient_id'];
     try {
-      const result = await this.itemIngredientsRepository.upsert(
-        itemIngredients,
-        { conflictPaths },
+      // First find existing records to determine which ones to update vs insert
+      const itemIds = [
+        ...new Set(
+          itemIngredients
+            .map((item) => item.item_id)
+            .filter((id): id is number => id !== undefined),
+        ),
+      ];
+      const ingredientIds = [
+        ...new Set(
+          itemIngredients
+            .map((item) => item.ingredient_id)
+            .filter((id): id is number => id !== undefined),
+        ),
+      ];
+
+      // Validate that all items and ingredients exist
+      for (const itemId of itemIds) {
+        await validateEntityExists(itemId, this.itemsService, 'Item');
+      }
+
+      for (const ingredientId of ingredientIds) {
+        await validateEntityExists(
+          ingredientId,
+          this.ingredientsService,
+          'Ingredient',
+        );
+      }
+
+      // Find existing item-ingredient relationships
+      const existingIngredients = await this.itemIngredientsRepository.find({
+        where: itemIngredients.map((item) => ({
+          item_id: item.item_id,
+          ingredient_id: item.ingredient_id,
+        })),
+      });
+
+      // Create a map for quick lookup of existing ingredients
+      const existingMap = new Map<string, ItemIngredient>();
+      existingIngredients.forEach((ingredient) => {
+        const key = `${ingredient.item_id}-${ingredient.ingredient_id}`;
+        existingMap.set(key, ingredient);
+      });
+
+      // Separate ingredients into those to update and those to insert
+      const toUpdate: ItemIngredient[] = [];
+      const toInsert: Partial<ItemIngredient>[] = [];
+
+      itemIngredients.forEach((ingredient) => {
+        if (
+          ingredient.item_id === undefined ||
+          ingredient.ingredient_id === undefined
+        ) {
+          return; // Skip ingredients with missing IDs
+        }
+
+        const key = `${ingredient.item_id}-${ingredient.ingredient_id}`;
+        const existing = existingMap.get(key);
+
+        if (existing) {
+          toUpdate.push({
+            ...existing,
+            qty: ingredient.qty ?? existing.qty,
+            measurement: ingredient.measurement ?? existing.measurement,
+          });
+        } else {
+          toInsert.push(ingredient);
+        }
+      });
+      const results: ItemIngredient[] = [];
+
+      if (toUpdate.length > 0) {
+        const updated = await this.itemIngredientsRepository.save(toUpdate);
+        results.push(...updated);
+      }
+
+      if (toInsert.length > 0) {
+        const inserted = await this.itemIngredientsRepository.save(toInsert);
+        results.push(...inserted);
+      }
+
+      this.logger.log(
+        `Upserted ${itemIngredients.length} item ingredients (${toUpdate.length} updated, ${toInsert.length} inserted)`,
       );
-      this.logger.log(`Upserted ${itemIngredients.length} item ingredients`);
-      return result.raw as ItemIngredient[];
+      return results;
     } catch (error) {
       this.logger.logError(error, 'ItemIngredientsService.upsert', {
         itemIngredients,
-        conflictPaths,
       });
       throw new InternalServerErrorException(
         'Failed to upsert item ingredients',
@@ -376,7 +441,6 @@ export class ItemIngredientsService {
    */
   async findByItemId(itemId: number): Promise<ItemIngredient[]> {
     try {
-      // Validate that the item exists using ItemsService
       await validateEntityExists(itemId, this.itemsService, 'Item');
 
       const itemIngredients = await this.itemIngredientsRepository.find({
@@ -407,7 +471,6 @@ export class ItemIngredientsService {
    */
   async findByIngredientId(ingredientId: number): Promise<ItemIngredient[]> {
     try {
-      // Validate that the ingredient exists using IngredientsService
       await validateEntityExists(
         ingredientId,
         this.ingredientsService,

@@ -3,9 +3,11 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not, IsNull } from 'typeorm';
 import { CreateMealDto } from './dto/create-meal.dto';
 import { UpdateMealDto } from './dto/update-meal.dto';
 import { Meal } from './entities/meal.entity';
@@ -15,6 +17,7 @@ import { CustomLoggerService } from '../../logger/logger.service';
 import { handleDuplicateEntryError } from '../../utils/duplicate-entry-handler.util';
 import { handleError } from '../../utils/error-handler.util';
 import { validateEntityExists } from '../../utils/entity-validation.util';
+import { MealItemsService } from '../meal-items/meal-items.service';
 
 /**
  * Meals Service
@@ -33,6 +36,8 @@ export class MealsService {
     private readonly mealsRepository: Repository<Meal>,
     private readonly itemsService: ItemsService,
     private readonly menuCategoriesService: MenuCategoriesService,
+    @Inject(forwardRef(() => MealItemsService))
+    private readonly mealItemsService: MealItemsService,
     private readonly logger: CustomLoggerService,
   ) {
     this.logger.setContext('MealsService');
@@ -66,31 +71,86 @@ export class MealsService {
    */
   async create(createMealDto: CreateMealDto) {
     try {
-      // Check if meal name already exists
       await this.checkMealNameExists(createMealDto.name);
 
-      // Verify that the category exists
       await validateEntityExists(
         createMealDto.categoryId,
         this.menuCategoriesService,
         'Category',
       );
 
-      // Verify all items exist and get their details
-      const items = await Promise.all(
-        createMealDto.itemIds.map(async (id) => {
-          await validateEntityExists(id, this.itemsService, 'Item');
-          return this.itemsService.findOne(id);
-        }),
-      );
+      // Create the meal without items first
+      const { mealItems, ...mealData } = createMealDto;
+      const meal = this.mealsRepository.create(mealData);
+      const savedMeal = await this.mealsRepository.save(meal);
 
-      // Create and save the meal
-      const meal = this.mealsRepository.create({
-        ...createMealDto,
-        items,
-      });
+      if (mealItems && mealItems.length > 0) {
+        const processedMealItems = mealItems
+          .map((item) => {
+            if (typeof item === 'string') {
+              try {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+                return JSON.parse(item);
+              } catch {
+                this.logger.warn(`Failed to parse meal item: ${String(item)}`);
+                return null;
+              }
+            }
+            return item;
+          })
+          .filter(
+            (item): item is { itemId: number; quantity: number } =>
+              item !== null &&
+              typeof item === 'object' &&
+              'itemId' in item &&
+              'quantity' in item &&
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              typeof item.itemId === 'number' &&
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              typeof item.quantity === 'number',
+          );
 
-      return await this.mealsRepository.save(meal);
+        if (processedMealItems.length === 0) {
+          this.logger.warn('No valid meal items found after processing');
+        } else {
+          // Verify all items exist
+          await Promise.all(
+            processedMealItems.map(async (mealItem) => {
+              await validateEntityExists(
+                mealItem.itemId,
+                this.itemsService,
+                'Item',
+              );
+            }),
+          );
+
+          const mealItemEntities = processedMealItems.map((mealItem) => ({
+            mealId: savedMeal.id,
+            itemId: mealItem.itemId,
+            quantity: mealItem.quantity,
+          }));
+
+          for (const mealItem of mealItemEntities) {
+            try {
+              await this.mealItemsService.create(mealItem);
+            } catch (error) {
+              this.logger.error(
+                `Failed to create meal item: ${JSON.stringify(mealItem)}`,
+                error instanceof Error ? error.message : String(error),
+              );
+            }
+          }
+
+          const items = await Promise.all(
+            processedMealItems.map((mealItem) =>
+              this.itemsService.findOne(mealItem.itemId),
+            ),
+          );
+          savedMeal.items = items;
+          await this.mealsRepository.save(savedMeal);
+        }
+      }
+      return this.findOne(savedMeal.id);
     } catch (err) {
       // Handle duplicate entry errors
       handleDuplicateEntryError(err, 'Meal name already exists', () => {
@@ -115,13 +175,17 @@ export class MealsService {
   }
 
   /**
-   * Find all meals
+   * Find all meals with optional filtering
    *
+   * @param includeDeleted Whether to include soft-deleted meals
    * @returns List of all meals
    */
-  async findAll() {
+  async findAll(includeDeleted: boolean = false) {
     try {
-      return await this.mealsRepository.find();
+      return await this.mealsRepository.find({
+        relations: ['items', 'category', 'mealItems'],
+        withDeleted: includeDeleted,
+      });
     } catch (err) {
       return handleError(err, [], 'Failed to retrieve meals', () => {
         this.logger.logError(err, 'MealsService.findAll');
@@ -167,15 +231,12 @@ export class MealsService {
    */
   async update(id: number, updateMealDto: UpdateMealDto) {
     try {
-      // Check if meal exists
       const existingMeal = await this.findOne(id);
 
-      // If updating name, check if the new name already exists for another meal
       if (updateMealDto.name && updateMealDto.name !== existingMeal.name) {
         await this.checkMealNameExists(updateMealDto.name, id);
       }
 
-      // Verify category exists if provided
       if (updateMealDto.categoryId) {
         await validateEntityExists(
           updateMealDto.categoryId,
@@ -184,47 +245,91 @@ export class MealsService {
         );
       }
 
-      // Verify all items exist if provided
-      if (updateMealDto.itemIds && updateMealDto.itemIds.length > 0) {
-        await Promise.all(
-          updateMealDto.itemIds.map(async (itemId) => {
-            await validateEntityExists(itemId, this.itemsService, 'Item');
-          }),
-        );
-      }
+      const { mealItems, ...restOfDto } = updateMealDto;
+      await this.mealsRepository.update(id, restOfDto);
 
-      const allowedFields = ['name', 'description', 'price', 'categoryId'];
-      const updatedFields = Object.fromEntries(
-        Object.entries(updateMealDto).filter(
-          ([key, value]) => allowedFields.includes(key) && value !== undefined,
-        ),
-      );
-
-      await this.mealsRepository.update(id, updatedFields);
-
-      // If item IDs are provided, update the items relation
-      if (updateMealDto.itemIds && updateMealDto.itemIds.length > 0) {
-        const items = await Promise.all(
-          updateMealDto.itemIds.map((itemId) =>
-            this.itemsService.findOne(itemId),
-          ),
+      if (mealItems && mealItems.length > 0) {
+        const existingMealItems = await this.mealItemsService.findByMealId(id);
+        const existingMealItemsMap = new Map(
+          existingMealItems.map((item) => [item.itemId, item]),
         );
 
-        // Get the meal with relations
-        const meal = await this.mealsRepository.findOne({
-          where: { id },
-          relations: ['items'],
-        });
+        const processedMealItems = mealItems
+          .map((item) => {
+            if (typeof item === 'string') {
+              try {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+                return JSON.parse(item);
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              } catch (error) {
+                this.logger.warn(
+                  `Failed to parse meal item during update: ${String(item)}`,
+                );
+                return null;
+              }
+            }
+            return item;
+          })
+          .filter(
+            (item): item is { itemId: number; quantity: number } =>
+              item !== null &&
+              typeof item === 'object' &&
+              'itemId' in item &&
+              'quantity' in item &&
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              typeof item.itemId === 'number' &&
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              typeof item.quantity === 'number',
+          );
 
-        if (meal) {
-          meal.items = items;
-          await this.mealsRepository.save(meal);
+        if (processedMealItems.length === 0) {
+          this.logger.warn(
+            `No valid meal items found after processing for meal ID ${id}`,
+          );
+        } else {
+          await Promise.all(
+            processedMealItems.map(async (mealItem) => {
+              await validateEntityExists(
+                mealItem.itemId,
+                this.itemsService,
+                'Item',
+              );
+            }),
+          );
+
+          const mealItemEntities = processedMealItems.map((mealItem) => ({
+            mealId: id,
+            itemId: mealItem.itemId,
+            quantity: mealItem.quantity,
+          }));
+
+          for (const mealItem of mealItemEntities) {
+            try {
+              if (existingMealItemsMap.has(mealItem.itemId)) {
+                await this.mealItemsService.update(id, mealItem.itemId, {
+                  quantity: mealItem.quantity,
+                });
+                this.logger.debug(
+                  `Updated meal item for meal ID ${id}, item ID ${mealItem.itemId}, quantity: ${mealItem.quantity}`,
+                );
+              } else {
+                await this.mealItemsService.create(mealItem);
+                this.logger.debug(
+                  `Created meal item for meal ID ${id}: ${JSON.stringify(mealItem)}`,
+                );
+              }
+            } catch (error) {
+              this.logger.error(
+                `Failed to create/update meal item during update: ${JSON.stringify(mealItem)}`,
+                error instanceof Error ? error.message : String(error),
+              );
+            }
+          }
         }
       }
 
       return this.findOne(id);
     } catch (err) {
-      // Handle duplicate entry errors
       handleDuplicateEntryError(err, 'Meal name already exists', () => {
         this.logger.error(
           'Database conflict: Meal name already exists',
@@ -232,7 +337,6 @@ export class MealsService {
         );
       });
 
-      // Handle other errors
       return handleError(
         err,
         [ConflictException, BadRequestException, NotFoundException],
@@ -248,23 +352,204 @@ export class MealsService {
   }
 
   /**
-   * Remove a meal
+   * Soft delete a meal
    *
    * @param id Meal ID
    */
   async remove(id: number): Promise<void> {
     try {
-      // Check if meal exists
+      if (!id || isNaN(id)) {
+        this.logger.warn(`Invalid meal ID: ${id}`);
+        throw new BadRequestException(`Invalid meal ID: ${id}`);
+      }
+
+      this.logger.log(`Soft deleting meal with ID: ${id}`);
+
       await this.findOne(id);
 
-      await this.mealsRepository.delete(id);
+      await this.mealItemsService.softDeleteAllByMealId(id);
+      this.logger.log(`All meal items for meal ID ${id} soft deleted`);
+
+      await this.mealsRepository.softDelete(id);
+
+      this.logger.log(`Meal with ID ${id} soft deleted`);
     } catch (err) {
       handleError(
         err,
         [NotFoundException],
-        `Failed to delete meal with ID ${id}`,
+        `Failed to soft delete meal with ID ${id}`,
         () => {
           this.logger.logError(err, 'MealsService.remove', { id });
+        },
+      );
+    }
+  }
+
+  /**
+   * Restore a soft-deleted meal
+   *
+   * @param id Meal ID
+   * @returns Restored meal
+   */
+  async restore(id: number): Promise<Meal> {
+    try {
+      if (!id || isNaN(id)) {
+        this.logger.warn(`Invalid meal ID: ${id}`);
+        throw new BadRequestException(`Invalid meal ID: ${id}`);
+      }
+
+      this.logger.log(`Restoring soft-deleted meal with ID: ${id}`);
+
+      const deletedMeal = await this.mealsRepository.findOne({
+        where: { id },
+        withDeleted: true,
+      });
+
+      if (!deletedMeal) {
+        throw new NotFoundException(`Meal with ID ${id} not found`);
+      }
+
+      if (!deletedMeal.deletedAt) {
+        throw new BadRequestException(`Meal with ID ${id} is not deleted`);
+      }
+
+      await this.mealsRepository.restore(id);
+
+      const meal = await this.findOne(id);
+
+      meal.isActive = true;
+      await this.mealsRepository.save(meal);
+
+      try {
+        const mealItems = await this.mealItemsService.findByMealId(id, true);
+
+        for (const mealItem of mealItems) {
+          if (mealItem.deletedAt) {
+            await this.mealItemsService.restore(
+              mealItem.mealId,
+              mealItem.itemId,
+            );
+          }
+        }
+
+        this.logger.log(`Associated meal items for meal ID ${id} restored`);
+      } catch (mealItemError: unknown) {
+        const errorMessage =
+          mealItemError instanceof Error
+            ? mealItemError.message
+            : 'Unknown error';
+        this.logger.warn(
+          `Meal restored but there was an issue restoring meal items: ${errorMessage}`,
+        );
+      }
+
+      this.logger.log(`Meal with ID ${id} restored`);
+
+      return this.findOne(id);
+    } catch (err) {
+      return handleError(
+        err,
+        [NotFoundException, BadRequestException],
+        `Failed to restore meal with ID ${id}`,
+        () => {
+          this.logger.logError(err, 'MealsService.restore', { id });
+        },
+      );
+    }
+  }
+
+  /**
+   * Find all soft-deleted meals
+   *
+   * @returns List of soft-deleted meals
+   */
+  async findAllSoftDeleted(): Promise<Meal[]> {
+    try {
+      this.logger.log('Finding all soft-deleted meals');
+
+      const meals = await this.mealsRepository.find({
+        withDeleted: true,
+        relations: ['items', 'category'],
+        where: {
+          deletedAt: Not(IsNull()),
+        },
+      });
+
+      this.logger.log(`Found ${meals.length} soft-deleted meals`);
+      return meals;
+    } catch (err) {
+      return handleError(err, [], 'Failed to find soft-deleted meals', () => {
+        this.logger.logError(err, 'MealsService.findAllSoftDeleted', {});
+      });
+    }
+  }
+
+  /**
+   * Find meals by active status
+   * @param isActive Active status to filter by
+   * @returns Array of meals with the specified active status
+   */
+  async findByActiveStatus(isActive: boolean): Promise<Meal[]> {
+    try {
+      const meals = await this.mealsRepository.find({
+        where: { isActive },
+        relations: ['items', 'category'],
+      });
+
+      this.logger.log(`Found ${meals.length} meals with isActive=${isActive}`);
+      return meals;
+    } catch (err) {
+      return handleError(
+        err,
+        [],
+        `Failed to find meals with isActive=${isActive}`,
+        () => {
+          this.logger.logError(err, 'MealsService.findByActiveStatus', {
+            isActive,
+          });
+        },
+      );
+    }
+  }
+
+  /**
+   * Permanently delete a meal (hard delete)
+   *
+   * @param id Meal ID
+   */
+  async hardDelete(id: number): Promise<void> {
+    try {
+      const meal = await this.mealsRepository.findOne({
+        where: { id },
+        withDeleted: true,
+      });
+
+      if (!meal) {
+        throw new NotFoundException(`Meal with ID ${id} not found`);
+      }
+
+      try {
+        await this.mealItemsService.removeAllByMealId(id);
+        this.logger.log(`All meal items for meal ID ${id} hard deleted`);
+      } catch (mealItemError: unknown) {
+        const errorMessage =
+          mealItemError instanceof Error
+            ? mealItemError.message
+            : 'Unknown error';
+        this.logger.warn(
+          `There was an issue deleting meal items: ${errorMessage}`,
+        );
+      }
+
+      await this.mealsRepository.delete(id);
+      this.logger.log(`Meal with ID ${id} permanently deleted`);
+    } catch (err) {
+      handleError(
+        err,
+        [NotFoundException],
+        `Failed to permanently delete meal with ID ${id}`,
+        () => {
+          this.logger.logError(err, 'MealsService.hardDelete', { id });
         },
       );
     }

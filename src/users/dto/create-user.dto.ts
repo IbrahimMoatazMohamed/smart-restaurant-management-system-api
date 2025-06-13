@@ -35,14 +35,6 @@ export class CreateUserDto {
   @IsString()
   country: string;
 
-  // @ApiProperty({
-  //   description: 'The salary of the user',
-  //   example: 50000,
-  // })
-  // @IsNotEmpty()
-  // @IsNumber()
-  // salary: number;
-
   @Transform(({ value }) => (value ?? 'User') as string)
   @ApiProperty({ description: 'The role of the user', example: 'Manager' })
   @IsNotEmpty()

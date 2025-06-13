@@ -4,7 +4,6 @@ import {
   IsNotEmpty,
   IsNumber,
   Min,
-  Max,
   IsOptional,
   IsDate,
   IsBoolean,
@@ -12,6 +11,7 @@ import {
   IsInt,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { CouponType } from '../entities/coupon-type.enum';
 
 export class CreateCouponDto {
   @ApiProperty({
@@ -27,19 +27,27 @@ export class CreateCouponDto {
     example: 'Summer discount for all menu items',
   })
   @IsString()
-  @IsNotEmpty()
-  description: string;
+  @IsOptional()
+  description?: string;
 
   @ApiProperty({
-    description: 'Discount percentage (0-100)',
+    description: 'Type of coupon',
+    example: CouponType.PERCENTAGE,
+    enum: CouponType,
+  })
+  @IsString()
+  @IsNotEmpty()
+  type: CouponType;
+
+  @ApiProperty({
+    description: 'Value of the coupon (percentage or fixed amount)',
     example: 15,
     minimum: 0,
-    maximum: 100,
   })
   @IsNumber()
   @Min(0)
-  @Max(100)
-  discountPercentage: number;
+  @IsNotEmpty()
+  value: number;
 
   @ApiProperty({
     description: 'Minimum order amount required to use the coupon',
@@ -68,7 +76,8 @@ export class CreateCouponDto {
   })
   @Type(() => Date)
   @IsDate()
-  startDate: Date;
+  @IsOptional()
+  startDate?: Date;
 
   @ApiProperty({
     description: 'Expiry date of the coupon',
@@ -76,7 +85,8 @@ export class CreateCouponDto {
   })
   @Type(() => Date)
   @IsDate()
-  expiryDate: Date;
+  @IsOptional()
+  expiryDate?: Date;
 
   @ApiProperty({
     description: 'Maximum number of times the coupon can be used',

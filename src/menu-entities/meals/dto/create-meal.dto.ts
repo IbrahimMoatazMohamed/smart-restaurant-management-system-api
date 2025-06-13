@@ -6,11 +6,12 @@ import {
   IsArray,
   IsEnum,
   Min,
-  ArrayMinSize,
-  IsUrl,
   IsOptional,
 } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import { MealStatus } from '../entities/meal.entity';
+import { MealItemDto } from './meal-item.dto';
+import { BadRequestException } from '@nestjs/common';
 
 export class CreateMealDto {
   @ApiProperty({
@@ -31,17 +32,14 @@ export class CreateMealDto {
     example: 15.99,
   })
   @IsNotEmpty()
+  @Transform(({ value }) => Number(value))
   @IsNumber()
   @Min(0)
   price: number;
 
-  @ApiProperty({
-    description: 'The photo of the meal',
-    example: 'meal.jpg',
-  })
-  @IsNotEmpty()
-  @IsUrl()
-  photo: string;
+  @ApiProperty({ type: 'string', format: 'binary', required: false })
+  @IsOptional()
+  photo?: any;
 
   @ApiProperty({
     description: 'The status of the meal',
@@ -58,16 +56,31 @@ export class CreateMealDto {
     example: 1,
   })
   @IsNotEmpty()
+  @Transform(({ value }) => Number(value))
   @IsNumber()
   categoryId: number;
 
   @ApiProperty({
-    description: 'The IDs of items included in this meal',
-    example: [1, 2, 3],
-    type: [Number],
+    description: 'The items with quantities included in this meal',
+    type: [MealItemDto],
+    required: false,
+    example: [
+      { itemId: 1, quantity: 100 },
+      { itemId: 2, quantity: 50 },
+    ],
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
-  itemIds: number[];
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        throw new BadRequestException('mealItems must be a valid JSON array');
+      }
+    }
+    return value;
+  })
+  @Type(() => MealItemDto)
+  mealItems?: MealItemDto[];
 }

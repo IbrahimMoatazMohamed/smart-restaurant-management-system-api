@@ -7,7 +7,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not, IsNull } from 'typeorm';
 import { Item, ItemStatus } from './entities/item.entity';
 import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
@@ -48,7 +48,10 @@ export class ItemsService {
       );
 
       // Validate all ingredients exist if provided
-      if (createItemDto.ingredients?.length > 0) {
+      if (
+        Array.isArray(createItemDto.ingredients) &&
+        createItemDto.ingredients.length > 0
+      ) {
         for (const ingredient of createItemDto.ingredients) {
           await validateEntityExists(
             ingredient.ingredientId,
@@ -71,7 +74,10 @@ export class ItemsService {
           measurement: ingredient.measurement,
         }));
 
-        await this.itemIngredientsService.save(itemIngredients);
+        await this.itemIngredientsService.upsert(itemIngredients);
+        this.logger.log(
+          `Added ${itemIngredients.length} ingredients to item ID: ${savedItem.id}`,
+        );
       }
 
       this.logger.log(`Item created with ID: ${savedItem.id}`);
@@ -102,14 +108,22 @@ export class ItemsService {
    * Find all items
    * @returns Array of items
    */
-  async findAll() {
+  async findAll(includeDeleted: boolean = false) {
     try {
-      const items = await this.itemsRepository.find();
-      this.logger.log(`Found ${items.length} items`);
+      const items = await this.itemsRepository.find({
+        withDeleted: includeDeleted,
+        where: {
+          isActive: !includeDeleted,
+        },
+        relations: ['category'],
+      });
+      this.logger.log(
+        `Found ${items.length} items${includeDeleted ? ' including deleted' : ''}`,
+      );
       return items;
     } catch (error) {
       return handleError(error, [], 'Failed to retrieve items', () =>
-        this.logger.logError(error, 'ItemsService.findAll'),
+        this.logger.logError(error, 'ItemsService.findAll', { includeDeleted }),
       );
     }
   }
@@ -123,11 +137,15 @@ export class ItemsService {
     try {
       const item = await this.itemsRepository.findOne({
         where: { id },
+        relations: ['category'],
       });
+
       if (!item) {
         this.logger.warn(`Item with ID ${id} not found`);
         throw new NotFoundException(`Item with ID ${id} not found`);
       }
+
+      this.logger.log(`Found item with ID: ${id}`);
       return item;
     } catch (error) {
       return handleError(
@@ -149,7 +167,6 @@ export class ItemsService {
     try {
       const item = await this.findOne(id);
 
-      // Verify that the category exists if it's being updated
       if (updateItemDto.categoryId) {
         await validateEntityExists(
           updateItemDto.categoryId,
@@ -158,7 +175,6 @@ export class ItemsService {
         );
       }
 
-      // Validate all ingredients exist if provided
       if (updateItemDto.ingredients?.length) {
         for (const ingredient of updateItemDto.ingredients) {
           await validateEntityExists(
@@ -169,28 +185,31 @@ export class ItemsService {
         }
       }
 
-      // Update item properties explicitly instead of using Object.assign
       if (updateItemDto.name) item.name = updateItemDto.name;
       if (updateItemDto.price !== undefined) item.price = updateItemDto.price;
       if (updateItemDto.photo) item.photo = updateItemDto.photo;
       if (updateItemDto.status) item.status = updateItemDto.status;
       if (updateItemDto.categoryId) item.categoryId = updateItemDto.categoryId;
+      if (updateItemDto.description !== undefined) {
+        item.description = updateItemDto.description || '';
+      }
 
       await this.itemsRepository.save(item);
 
-      if (updateItemDto.ingredients?.length) {
+      if (updateItemDto.ingredients !== undefined) {
         const existingIngredients = await this.itemIngredientsService.find({
           where: { item_id: id },
         });
 
-        const newIngredients = updateItemDto.ingredients.map((ingredient) => ({
-          item_id: id,
-          ingredient_id: ingredient.ingredientId,
-          qty: ingredient.qty,
-          measurement: ingredient.measurement,
-        }));
+        const newIngredients = (updateItemDto.ingredients || []).map(
+          (ingredient) => ({
+            item_id: id,
+            ingredient_id: ingredient.ingredientId,
+            qty: ingredient.qty,
+            measurement: ingredient.measurement,
+          }),
+        );
 
-        // Remove ingredients that are not in the updated list
         const newIngredientIds = newIngredients.map((i) => i.ingredient_id);
         const ingredientsToRemove = existingIngredients
           .filter((i) => !newIngredientIds.includes(i.ingredient_id))
@@ -198,16 +217,22 @@ export class ItemsService {
 
         if (ingredientsToRemove.length) {
           await this.itemIngredientsService.delete(ingredientsToRemove);
+          this.logger.log(
+            `Removed ${ingredientsToRemove.length} ingredients from item ID: ${id}`,
+          );
         }
 
-        // Insert or update new ingredients
-        await this.itemIngredientsService.upsert(newIngredients);
+        if (newIngredients.length > 0) {
+          await this.itemIngredientsService.upsert(newIngredients);
+          this.logger.log(
+            `Updated ${newIngredients.length} ingredients for item ID: ${id}`,
+          );
+        }
       }
 
       this.logger.log(`Item with ID ${id} updated`);
-      return this.findOne(id); // Return the updated item
+      return this.findOne(id);
     } catch (error) {
-      // Handle duplicate entry errors
       if (updateItemDto.name) {
         handleDuplicateEntryError(
           error,
@@ -240,15 +265,16 @@ export class ItemsService {
    */
   async remove(id: number): Promise<void> {
     try {
-      await this.findOne(id);
+      const item = await this.findOne(id);
 
-      await this.itemsRepository.delete(id);
-      this.logger.log(`Item with ID ${id} removed`);
+      await this.itemsRepository.delete(item);
+
+      this.logger.log(`Item with ID ${id} soft deleted`);
     } catch (error) {
       return handleError(
         error,
         [NotFoundException],
-        `Failed to remove item with ID ${id}`,
+        `Failed to soft delete item with ID ${id}`,
         () => this.logger.logError(error, 'ItemsService.remove', { id }),
       );
     }
@@ -263,6 +289,7 @@ export class ItemsService {
     try {
       const items = await this.itemsRepository.find({
         where: { status: status as ItemStatus },
+        relations: ['category'],
       });
       this.logger.log(`Found ${items.length} items with status: ${status}`);
       return items;
@@ -273,6 +300,186 @@ export class ItemsService {
         `Failed to retrieve items with status ${status}`,
         () =>
           this.logger.logError(error, 'ItemsService.findByStatus', { status }),
+      );
+    }
+  }
+
+  /**
+   * Restore a soft-deleted item
+   *
+   * @param id Item ID
+   * @returns Restored item
+   */
+  async restore(id: number): Promise<Item> {
+    try {
+      // Validate that id is a valid number
+      if (!id || isNaN(id)) {
+        this.logger.warn(`Invalid item ID: ${id}`);
+        throw new BadRequestException(`Invalid item ID: ${id}`);
+      }
+
+      this.logger.log(`Restoring soft-deleted item with ID: ${id}`);
+
+      const deletedItem = await this.itemsRepository.findOne({
+        where: { id },
+        withDeleted: true,
+      });
+
+      if (!deletedItem) {
+        throw new NotFoundException(`Item with ID ${id} not found`);
+      }
+
+      if (!deletedItem.deletedAt) {
+        throw new BadRequestException(`Item with ID ${id} is not deleted`);
+      }
+
+      await this.itemsRepository.restore(id);
+
+      const item = await this.findOne(id);
+
+      item.isActive = true;
+      await this.itemsRepository.save(item);
+      this.logger.log(`Item with ID ${id} restored`);
+
+      return this.findOne(id);
+    } catch (error) {
+      return handleError(
+        error,
+        [NotFoundException, BadRequestException],
+        `Failed to restore item with ID ${id}`,
+        () => {
+          this.logger.logError(error, 'ItemsService.restore', { id });
+        },
+      );
+    }
+  }
+
+  /**
+   * Find all soft-deleted items
+   *
+   * @returns List of soft-deleted items
+   */
+  async findAllSoftDeleted(): Promise<Item[]> {
+    try {
+      this.logger.log('Finding all soft-deleted items');
+
+      const items = await this.itemsRepository.find({
+        withDeleted: true,
+        relations: ['category'],
+        where: {
+          deletedAt: Not(IsNull()),
+        },
+      });
+
+      this.logger.log(`Found ${items.length} soft-deleted items`);
+      return items;
+    } catch (error) {
+      return handleError(error, [], 'Failed to find soft-deleted items', () => {
+        this.logger.logError(error, 'ItemsService.findAllSoftDeleted', {});
+      });
+    }
+  }
+
+  /**
+   * Find items by active status
+   * @param isActive Active status to filter by
+   * @returns Array of items with the specified active status
+   */
+  async findByActiveStatus(isActive: boolean): Promise<Item[]> {
+    try {
+      const items = await this.itemsRepository.find({
+        where: { isActive },
+        relations: ['category'],
+      });
+
+      this.logger.log(`Found ${items.length} items with isActive=${isActive}`);
+      return items;
+    } catch (error) {
+      return handleError(
+        error,
+        [],
+        `Failed to find items with isActive=${isActive}`,
+        () => {
+          this.logger.logError(error, 'ItemsService.findByActiveStatus', {
+            isActive,
+          });
+        },
+      );
+    }
+  }
+
+  /**
+   * Soft delete an item
+   *
+   * @param id Item ID
+   * @returns The soft-deleted item
+   */
+  async softDelete(id: number): Promise<Item | null> {
+    try {
+      // Validate that id is a valid number
+      if (!id || isNaN(id)) {
+        this.logger.warn(`Invalid item ID: ${id}`);
+        throw new BadRequestException(`Invalid item ID: ${id}`);
+      }
+
+      const item = await this.findOne(id);
+
+      item.isActive = false;
+      await this.itemsRepository.save(item);
+
+      await this.itemsRepository.softDelete(id);
+
+      this.logger.log(`Item with ID ${id} soft deleted`);
+
+      const softDeletedItem = await this.itemsRepository.findOne({
+        where: { id },
+        withDeleted: true,
+      });
+
+      if (!softDeletedItem) {
+        throw new NotFoundException(
+          `Item with ID ${id} not found after soft delete`,
+        );
+      }
+
+      return softDeletedItem;
+    } catch (error) {
+      return handleError(
+        error,
+        [NotFoundException, BadRequestException],
+        `Failed to soft delete item with ID ${id}`,
+        () => {
+          this.logger.logError(error, 'ItemsService.softDelete', { id });
+        },
+      );
+    }
+  }
+
+  /**
+   * Permanently delete an item (hard delete)
+   *
+   * @param id Item ID
+   */
+  async hardDelete(id: number): Promise<void> {
+    try {
+      const item = await this.itemsRepository.findOne({
+        where: { id },
+        withDeleted: true,
+      });
+
+      if (!item) {
+        throw new NotFoundException(`Item with ID ${id} not found`);
+      }
+
+      await this.itemsRepository.delete(id);
+    } catch (error) {
+      handleError(
+        error,
+        [NotFoundException],
+        `Failed to permanently delete item with ID ${id}`,
+        () => {
+          this.logger.logError(error, 'ItemsService.hardDelete', { id });
+        },
       );
     }
   }

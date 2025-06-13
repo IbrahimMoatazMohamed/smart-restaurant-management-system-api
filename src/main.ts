@@ -6,6 +6,20 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Configure CORS
+  app.enableCors({
+    origin: [
+      'http://localhost:8080',
+      'http://localhost:5173',
+      'http://localhost:8081',
+    ], // Add frontend URLs
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    credentials: true,
+  });
+
+  // Add global prefix for all routes
+  app.setGlobalPrefix('api');
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -18,8 +32,6 @@ async function bootstrap() {
     .setTitle('Smart Restaurant API')
     .setDescription('The Smart Restaurant API documentation')
     .setVersion('1.0')
-    .addTag('users')
-    .addTag('auth')
     .addBearerAuth(
       {
         type: 'http',

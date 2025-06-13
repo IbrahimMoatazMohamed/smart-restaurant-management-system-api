@@ -13,10 +13,7 @@ export class ItemResponseDto {
   price: number;
 
   @Expose()
-  @ApiProperty({
-    description: 'The photo URL of the item',
-    required: false,
-  })
+  @ApiProperty({ type: 'string', format: 'binary', required: false })
   photo: string;
 
   @Expose()

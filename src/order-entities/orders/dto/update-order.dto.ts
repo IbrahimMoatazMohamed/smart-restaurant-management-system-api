@@ -1,8 +1,11 @@
-import { PartialType } from '@nestjs/swagger';
+import { ApiProperty, PartialType } from '@nestjs/swagger';
 import { CreateOrderDto } from './create-order.dto';
+import { OrderStatus } from '../entities/order.entity';
+import { IsEnum, IsOptional } from 'class-validator';
 
-/**
- * UpdateOrderDto is created by extending PartialType of CreateOrderDto,
- * making all fields optional for updates.
- */
-export class UpdateOrderDto extends PartialType(CreateOrderDto) {}
+export class UpdateOrderDto extends PartialType(CreateOrderDto) {
+  @ApiProperty({ enum: OrderStatus })
+  @IsEnum(OrderStatus)
+  @IsOptional()
+  status?: OrderStatus;
+}

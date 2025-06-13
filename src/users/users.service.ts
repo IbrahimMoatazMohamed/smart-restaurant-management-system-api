@@ -160,7 +160,7 @@ export class UsersService {
   async findByEmail(email: string) {
     try {
       const user = await this.usersRepository.findOne({
-        where: { email },
+        where: { email: email.toLowerCase() },
         select: ['id', 'email', 'name', 'role', 'password'],
       });
       if (!user) {
@@ -230,6 +230,38 @@ export class UsersService {
         `Failed to delete user with ID ${id}`,
         () => {
           this.logger.logError(err, 'UsersService.remove', { userId: id });
+        },
+      );
+    }
+  }
+
+  /**
+   * Update a user's profile image
+   *
+   * @param id User ID
+   * @param imageUrl URL of the uploaded image
+   * @returns Object with image URL
+   */
+  async updateProfileImage(
+    id: number,
+    imageUrl: string,
+  ): Promise<{ imageUrl: string }> {
+    try {
+      const user = await this.findOne(id);
+
+      user.imageUrl = imageUrl;
+      await this.usersRepository.save(user);
+
+      return { imageUrl };
+    } catch (err) {
+      return handleError(
+        err,
+        [NotFoundException, BadRequestException],
+        `Failed to update profile image for user with ID ${id}`,
+        () => {
+          this.logger.logError(err, 'UsersService.updateProfileImage', {
+            userId: id,
+          });
         },
       );
     }

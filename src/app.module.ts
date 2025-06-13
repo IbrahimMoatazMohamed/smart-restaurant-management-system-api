@@ -12,6 +12,12 @@ import { MenuCategoriesModule } from './menu-entities/menu-categories/menu-categ
 import { ItemIngredientsModule } from './menu-entities/item-ingredients/item-ingredients.module';
 import { CouponsModule } from './order-entities/coupons/coupons.module';
 import { AuthModule } from './auth/auth.module';
+import { IngredientCategoriesModule } from './menu-entities/ingredient-categories/ingredient-categories.module';
+import { FileUploadModule } from './file-upload/file-upload.module';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
+import { MealItemsModule } from './menu-entities/meal-items/meal-items.module';
+import { TableReservationsModule } from './order-entities/table-reservations/table-reservations.module';
 
 @Module({
   imports: [
@@ -28,6 +34,10 @@ import { AuthModule } from './auth/auth.module';
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: process.env.NODE_ENV !== 'production',
     }),
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'uploads'),
+      serveRoot: '/uploads',
+    }),
     LoggerModule,
     UsersModule,
     AuthModule,
@@ -39,6 +49,10 @@ import { AuthModule } from './auth/auth.module';
     MenuCategoriesModule,
     ItemIngredientsModule,
     CouponsModule,
+    IngredientCategoriesModule,
+    FileUploadModule,
+    MealItemsModule,
+    TableReservationsModule,
   ],
   controllers: [],
   providers: [],

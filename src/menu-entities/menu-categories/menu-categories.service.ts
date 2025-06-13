@@ -102,13 +102,17 @@ export class MenuCategoriesService {
   }
 
   /**
-   * Find all menu categories
+   * Find all menu categories with optional filtering
    *
-   * @returns List of all menu categories
+   * @param includeDeleted Whether to include soft-deleted categories
+   * @returns List of menu categories
    */
-  async findAll() {
+  async findAll(includeDeleted: boolean = false): Promise<MenuCategory[]> {
     try {
-      return await this.menuCategoryRepository.find();
+      return await this.menuCategoryRepository.find({
+        relations: ['items', 'meals'],
+        withDeleted: includeDeleted,
+      });
     } catch (err) {
       return handleError(err, [], 'Failed to retrieve menu categories', () => {
         this.logger.logError(err, 'MenuCategoriesService.findAll');
@@ -126,6 +130,7 @@ export class MenuCategoriesService {
     try {
       const category = await this.menuCategoryRepository.findOne({
         where: { id },
+        relations: ['items'],
       });
 
       if (!category) {
@@ -198,23 +203,180 @@ export class MenuCategoriesService {
   }
 
   /**
-   * Remove a menu category
+   * Soft delete a menu category
    *
    * @param id Menu category ID
    */
   async remove(id: number): Promise<void> {
     try {
-      // Check if category exists
-      await this.findOne(id);
+      this.logger.log(`Soft deleting menu category with ID: ${id}`);
 
+      const menuCategory = await this.findOne(id);
+
+      menuCategory.isActive = false;
+      await this.menuCategoryRepository.save(menuCategory);
+
+      await this.menuCategoryRepository.softDelete(id);
+      this.logger.log(`Menu category with ID ${id} soft deleted`);
+    } catch (err) {
+      return handleError(
+        err,
+        [NotFoundException],
+        `Failed to soft delete menu category with ID ${id}`,
+        () => {
+          this.logger.logError(err, 'MenuCategoriesService.remove', { id });
+        },
+      );
+    }
+  }
+
+  /**
+   * Restore a soft-deleted menu category
+   *
+   * @param id Menu category ID
+   * @returns Restored menu category
+   */
+  async restore(id: number): Promise<MenuCategory> {
+    try {
+      // Validate that id is a valid number
+      if (!id || isNaN(id)) {
+        this.logger.warn(`Invalid menu category ID: ${id}`);
+        throw new BadRequestException(`Invalid menu category ID: ${id}`);
+      }
+
+      this.logger.log(`Restoring soft-deleted menu category with ID: ${id}`);
+
+      // Check if the category exists in deleted items
+      const deletedCategory = await this.menuCategoryRepository.findOne({
+        where: { id },
+        withDeleted: true,
+      });
+
+      if (!deletedCategory) {
+        throw new NotFoundException(`Menu category with ID ${id} not found`);
+      }
+
+      if (!deletedCategory.deletedAt) {
+        throw new BadRequestException(
+          `Menu category with ID ${id} is not deleted`,
+        );
+      }
+
+      // Use TypeORM's built-in restore method
+      await this.menuCategoryRepository.restore(id);
+
+      // Get the restored category
+      const menuCategory = await this.findOne(id);
+
+      // Update the category to be active and clear deletion metadata
+      menuCategory.isActive = true;
+      await this.menuCategoryRepository.save(menuCategory);
+      this.logger.log(`Menu category with ID ${id} restored`);
+
+      return this.findOne(id);
+    } catch (err) {
+      return handleError(
+        err,
+        [NotFoundException, BadRequestException],
+        `Failed to restore menu category with ID ${id}`,
+        () => {
+          this.logger.logError(err, 'MenuCategoriesService.restore', { id });
+        },
+      );
+    }
+  }
+
+  /**
+   * Find all soft-deleted menu categories
+   *
+   * @returns List of soft-deleted menu categories
+   */
+  async findAllSoftDeleted(): Promise<MenuCategory[]> {
+    try {
+      this.logger.log('Finding all soft-deleted menu categories');
+
+      // Use withDeleted to include soft-deleted entities and filter to only get deleted ones
+      const categories = await this.menuCategoryRepository.find({
+        withDeleted: true,
+        relations: ['items'],
+      });
+
+      this.logger.log(
+        `Found ${categories.length} soft-deleted menu categories`,
+      );
+      return categories;
+    } catch (err) {
+      return handleError(
+        err,
+        [],
+        'Failed to find soft-deleted menu categories',
+        () =>
+          this.logger.logError(
+            err,
+            'MenuCategoriesService.findAllSoftDeleted',
+            {},
+          ),
+      );
+    }
+  }
+
+  /**
+   * Find menu categories by active status
+   * @param isActive Active status to filter by
+   * @returns Array of menu categories with the specified active status
+   */
+  async findByActiveStatus(isActive: boolean): Promise<MenuCategory[]> {
+    try {
+      const categories = await this.menuCategoryRepository.find({
+        where: { isActive },
+        relations: ['items'],
+      });
+
+      this.logger.log(
+        `Found ${categories.length} menu categories with isActive=${isActive}`,
+      );
+      return categories;
+    } catch (err) {
+      return handleError(
+        err,
+        [],
+        `Failed to find menu categories with isActive=${isActive}`,
+        () =>
+          this.logger.logError(
+            err,
+            'MenuCategoriesService.findByActiveStatus',
+            { isActive },
+          ),
+      );
+    }
+  }
+
+  /**
+   * Permanently delete a menu category (hard delete)
+   *
+   * @param id Menu category ID
+   */
+  async hardDelete(id: number): Promise<void> {
+    try {
+      // Check if category exists (including soft-deleted ones)
+      const category = await this.menuCategoryRepository.findOne({
+        where: { id },
+        withDeleted: true,
+      });
+
+      if (!category) {
+        throw new NotFoundException(`Menu category with ID ${id} not found`);
+      }
+
+      // Permanently delete the category
       await this.menuCategoryRepository.delete(id);
     } catch (err) {
       handleError(
         err,
         [NotFoundException],
-        `Failed to delete menu category with ID ${id}`,
+        `Failed to permanently delete menu category with ID ${id}`,
         () => {
-          this.logger.logError(err, 'MenuCategoriesService.remove', { id });
+          this.logger.logError(err, 'MenuCategoriesService.hardDelete', { id });
         },
       );
     }

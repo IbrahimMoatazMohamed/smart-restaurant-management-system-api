@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { ApiProperty } from '@nestjs/swagger';
 import {
   IsString,
@@ -5,14 +6,13 @@ import {
   IsArray,
   IsEnum,
   IsOptional,
-  IsUrl,
-  ValidateNested,
   Min,
   IsNotEmpty,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { ItemStatus } from '../entities/item.entity';
 import { CreateItemIngredientDto } from 'src/menu-entities/item-ingredients/dto/create-item-ingredient.dto';
+import { BadRequestException } from '@nestjs/common';
 
 export class CreateItemDto {
   @ApiProperty({ description: 'The name of the item' })
@@ -23,24 +23,48 @@ export class CreateItemDto {
   @ApiProperty({ description: 'The price of the item' })
   @IsNumber()
   @Min(0)
+  @Transform(({ value }) => {
+    return typeof value === 'string' ? parseFloat(value) : Number(value);
+  })
   price: number;
+
+  @ApiProperty({
+    description: 'The description of the item',
+    required: false,
+  })
+  @IsOptional()
+  description?: string;
 
   @ApiProperty({
     description: 'The list of ingredients required for this item',
     type: [CreateItemIngredientDto],
-  })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CreateItemIngredientDto)
-  ingredients: CreateItemIngredientDto[];
-
-  @ApiProperty({
-    description: 'The photo URL of the item',
     required: false,
+    example: [
+      {
+        ingredientId: 1,
+        qty: 4,
+        measurement: 'kg',
+      },
+    ],
   })
-  @IsNotEmpty()
-  @IsUrl()
-  photo: string;
+  @IsOptional()
+  @IsArray()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        throw new BadRequestException('ingredients must be a valid JSON array');
+      }
+    }
+    return value;
+  })
+  @Type(() => CreateItemIngredientDto)
+  ingredients?: CreateItemIngredientDto[];
+
+  @ApiProperty({ type: 'string', format: 'binary', required: false })
+  @IsOptional()
+  photo?: string;
 
   @ApiProperty({
     description: 'The status of the item',
@@ -58,5 +82,8 @@ export class CreateItemDto {
   })
   @IsNotEmpty()
   @IsNumber()
+  @Transform(({ value }) => {
+    return typeof value === 'string' ? parseInt(value, 10) : Number(value);
+  })
   categoryId: number;
 }

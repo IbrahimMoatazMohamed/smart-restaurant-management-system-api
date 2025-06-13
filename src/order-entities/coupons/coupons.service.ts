@@ -13,7 +13,9 @@ import { CustomLoggerService } from '../../logger/logger.service';
 import { handleError } from '../../utils/error-handler.util';
 import { CouponResponseDto } from './dto/coupon-response.dto';
 import { CouponWithRelationsResponseDto } from './dto/coupon-with-relations-response.dto';
+import { CouponValidationResponseDto } from './dto/coupon-validation-response.dto';
 import { isAfter } from 'date-fns';
+import { CouponType } from './entities/coupon-type.enum';
 
 /**
  * Coupons Service
@@ -56,6 +58,21 @@ export class CouponsService {
   }
 
   /**
+   * Validate coupon value based on type
+   *
+   * @param type Coupon type
+   * @param value Coupon value
+   * @throws BadRequestException if percentage coupon value exceeds 100
+   */
+  private validateCouponValue(type: CouponType, value: number): void {
+    if (type === CouponType.PERCENTAGE && value > 100) {
+      throw new BadRequestException(
+        'Percentage coupon value cannot exceed 100',
+      );
+    }
+  }
+
+  /**
    * Create a new coupon
    *
    * @param createCouponDto Coupon creation data
@@ -63,10 +80,10 @@ export class CouponsService {
    */
   async create(createCouponDto: CreateCouponDto): Promise<CouponResponseDto> {
     try {
-      // Check if coupon code already exists
       await this.checkCouponCodeExists(createCouponDto.code);
 
-      // Create and save the coupon
+      this.validateCouponValue(createCouponDto.type, createCouponDto.value);
+
       const coupon = this.couponsRepository.create({
         ...createCouponDto,
         usageCount: 0,
@@ -103,16 +120,12 @@ export class CouponsService {
       const now = new Date();
       let whereClause: Record<string, any> = {};
 
-      // Filter by active status if specified
       if (active !== undefined) {
         whereClause.isActive = active;
       }
-
-      // Filter by validity if specified
       if (valid) {
         whereClause = {
           ...whereClause,
-          // Not expired or no expiry date
           expiryDate: MoreThanOrEqual(now),
         };
       }
@@ -121,7 +134,6 @@ export class CouponsService {
         where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
       });
 
-      // Additional filtering for usage limit
       const filteredCoupons = valid
         ? coupons.filter(
             (coupon) =>
@@ -205,12 +217,12 @@ export class CouponsService {
    *
    * @param code Coupon code
    * @param orderAmount Order amount
-   * @returns Validated coupon
+   * @returns Coupon validation response
    */
   async validateCoupon(
     code: string,
     orderAmount: number,
-  ): Promise<CouponResponseDto> {
+  ): Promise<CouponValidationResponseDto> {
     try {
       const coupon = await this.couponsRepository.findOne({
         where: { code },
@@ -220,52 +232,85 @@ export class CouponsService {
         throw new NotFoundException(`Coupon with code '${code}' not found`);
       }
 
-      // Check if coupon is active
       if (!coupon.isActive) {
-        throw new BadRequestException(`Coupon '${code}' is inactive`);
+        return {
+          valid: false,
+          message: `Coupon '${code}' is inactive`,
+        };
       }
-
-      // Check if coupon has expired
       const now = new Date();
-      if (coupon.expiryDate && coupon.expiryDate < now) {
-        throw new BadRequestException(`Coupon '${code}' has expired`);
+      if (coupon.expiryDate && isAfter(new Date(), coupon.expiryDate)) {
+        return {
+          valid: false,
+          message: `Coupon '${code}' has expired`,
+        };
       }
 
-      // Check if coupon has started
       if (coupon.startDate && coupon.startDate > now) {
         throw new BadRequestException(`Coupon '${code}' is not yet active`);
       }
-
-      // Check if usage limit is reached
       if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) {
-        throw new BadRequestException(
-          `Coupon '${code}' has reached its usage limit`,
-        );
+        return {
+          valid: false,
+          message: `Coupon '${code}' has reached its usage limit`,
+        };
       }
 
-      // Check minimum order amount
       if (
         coupon.minimumOrderAmount &&
         orderAmount < coupon.minimumOrderAmount
       ) {
-        throw new BadRequestException(
-          `Order amount does not meet the minimum requirement of ${coupon.minimumOrderAmount} for coupon '${code}'`,
-        );
+        return {
+          valid: false,
+          message: `Order amount does not meet the minimum requirement of $${coupon.minimumOrderAmount} for coupon '${code}'`,
+        };
       }
 
-      return coupon;
+      if (coupon.type === CouponType.PERCENTAGE && coupon.value > 100) {
+        return {
+          valid: false,
+          message: `Coupon '${code}' has an invalid percentage value. Percentage cannot exceed 100%`,
+        };
+      }
+
+      let discountAmount = 0;
+
+      switch (coupon.type) {
+        case CouponType.PERCENTAGE:
+          discountAmount = (orderAmount * coupon.value) / 100;
+          if (
+            coupon.maximumDiscountAmount &&
+            discountAmount > coupon.maximumDiscountAmount
+          ) {
+            discountAmount = coupon.maximumDiscountAmount;
+          }
+          break;
+        case CouponType.FIXED:
+          discountAmount = coupon.value;
+          break;
+        case CouponType.BOGO:
+          discountAmount = 0;
+          break;
+        default:
+          discountAmount = 0;
+      }
+      return {
+        valid: true,
+        coupon,
+        discountAmount,
+        message: `Coupon '${code}' applied successfully`,
+      };
     } catch (err) {
-      return handleError(
-        err,
-        [NotFoundException, BadRequestException],
-        `Failed to validate coupon with code ${code}`,
-        () => {
-          this.logger.logError(err, 'CouponsService.validateCoupon', {
-            code,
-            orderAmount,
-          });
-        },
-      );
+      this.logger.logError(err, 'CouponsService.validateCoupon', {
+        code,
+        orderAmount,
+      });
+
+      return {
+        valid: false,
+        message:
+          err instanceof Error ? err.message : 'Failed to validate coupon',
+      };
     }
   }
 
@@ -281,7 +326,6 @@ export class CouponsService {
     updateCouponDto: UpdateCouponDto,
   ): Promise<CouponResponseDto> {
     try {
-      // Check if the coupon exists
       const oldCoupon = await this.findOne(id);
 
       if (updateCouponDto.expiryDate && !updateCouponDto.startDate) {
@@ -298,12 +342,18 @@ export class CouponsService {
         }
       }
 
-      // Check if coupon code is being updated and if it already exists
       if (updateCouponDto.code) {
         await this.checkCouponCodeExists(updateCouponDto.code, id);
       }
 
-      // Update the coupon
+      const couponType = updateCouponDto.type || oldCoupon.type;
+      const couponValue =
+        updateCouponDto.value !== undefined
+          ? updateCouponDto.value
+          : oldCoupon.value;
+
+      this.validateCouponValue(couponType, couponValue);
+
       const updatedCoupon = await this.couponsRepository.preload({
         id,
         ...updateCouponDto,
@@ -368,7 +418,6 @@ export class CouponsService {
    */
   async remove(id: number): Promise<void> {
     try {
-      // Get coupon with relations to check if it has associated orders
       const couponWithRelations = await this.couponsRepository.findOne({
         where: { id },
         relations: ['orders'],
@@ -378,7 +427,6 @@ export class CouponsService {
         throw new NotFoundException(`Coupon with ID ${id} not found`);
       }
 
-      // Check if coupon has associated orders
       if (couponWithRelations.orders && couponWithRelations.orders.length > 0) {
         throw new BadRequestException(
           `Cannot delete coupon with ID ${id} because it has associated orders`,

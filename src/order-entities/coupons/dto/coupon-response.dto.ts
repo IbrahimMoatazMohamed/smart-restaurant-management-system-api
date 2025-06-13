@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { CouponType } from '../entities/coupon-type.enum';
 import { Exclude, Expose } from 'class-transformer';
 
 @Exclude()
@@ -16,8 +17,14 @@ export class CouponResponseDto {
   description: string;
 
   @Expose()
-  @ApiProperty({ description: 'Discount percentage (0-100)' })
-  discountPercentage: number;
+  @ApiProperty({ description: 'Type of coupon', enum: CouponType })
+  type: CouponType;
+
+  @Expose()
+  @ApiProperty({
+    description: 'Value of the coupon (percentage or fixed amount)',
+  })
+  value: number;
 
   @Expose()
   @ApiProperty({
