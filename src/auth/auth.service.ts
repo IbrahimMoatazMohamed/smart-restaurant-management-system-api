@@ -57,6 +57,7 @@ export class AuthService {
       if (err instanceof NotFoundException) {
         throw new UnauthorizedException('Invalid credentials');
       }
+      
       return handleError(
         err,
         [UnauthorizedException],
@@ -99,6 +100,7 @@ export class AuthService {
       return handleError(
         err,
         [UnauthorizedException, ForbiddenException],
+
         'Failed to login',
         () => {
           this.logger.logError(err, 'AuthService.login', {
