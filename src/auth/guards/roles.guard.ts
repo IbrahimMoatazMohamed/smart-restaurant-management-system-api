@@ -10,12 +10,12 @@ import { CustomLoggerService } from '../../logger/logger.service';
 import { RequestWithUser } from '../interfaces/request-with-user.interface';
 
 @Injectable()
-export class AdminRoleGuard implements CanActivate {
+export class RolesGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     private readonly logger: CustomLoggerService,
   ) {
-    this.logger.setContext('AdminRoleGuard');
+    this.logger.setContext('RolesGuard');
   }
 
   canActivate(

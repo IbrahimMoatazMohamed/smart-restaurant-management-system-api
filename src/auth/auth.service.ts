@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
@@ -49,6 +50,9 @@ export class AuthService {
       const { password: passwordField, ...result } = user;
       return result;
     } catch (err) {
+      if (err instanceof NotFoundException) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
       return handleError(
         err,
         [UnauthorizedException],
@@ -86,7 +90,7 @@ export class AuthService {
     } catch (err) {
       return handleError(
         err,
-        [UnauthorizedException],
+        [UnauthorizedException, ForbiddenException],
         'Failed to login',
         () => {
           this.logger.logError(err, 'AuthService.login', {

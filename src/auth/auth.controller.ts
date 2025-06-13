@@ -1,4 +1,11 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  ForbiddenException,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -42,7 +49,14 @@ export class AuthController {
   })
   async login(@Body() loginDto: LoginDto) {
     this.logger.log(`Login attempt for user with email: ${loginDto.email}`);
-    return await this.authService.login(loginDto);
+
+    const user = await this.authService.login(loginDto);
+
+    if (user.user.role !== 'user') {
+      throw new ForbiddenException('Access denied: User role required');
+    }
+
+    return user;
   }
 
   /**
