@@ -120,11 +120,11 @@ export class UsersController {
    * @param id User ID
    * @returns User
    */
-  @Get(':id')
+  @Get(':userId')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get a user by ID' })
-  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiParam({ name: 'userId', description: 'User ID' })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'User found.',
@@ -144,15 +144,15 @@ export class UsersController {
   /**
    * Update a user
    *
-   * @param id User ID
+   * @param userId User ID
    * @param updateUserDto User update data
    * @returns Updated user
    */
-  @Patch(':id')
+  @Patch(':userId')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update a user' })
-  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiParam({ name: 'userId', description: 'User ID' })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'User has been successfully updated.',
@@ -181,13 +181,13 @@ export class UsersController {
   /**
    * Delete a user
    *
-   * @param id User ID
+   * @param userId User ID
    */
-  @Delete(':id')
+  @Delete(':userId')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Delete a user' })
-  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiParam({ name: 'userId', description: 'User ID' })
   @ApiResponse({
     status: HttpStatus.NO_CONTENT,
     description: 'User has been successfully deleted.',
@@ -209,15 +209,15 @@ export class UsersController {
   /**
    * Upload a profile image for a user
    *
-   * @param id User ID
+   * @param userId User ID
    * @param file Image file
    * @returns Object with image URL
    */
-  @Post(':id/image')
+  @Post(':userId/image')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Upload a profile image' })
-  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiParam({ name: 'userId', description: 'User ID' })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Profile image uploaded successfully.',

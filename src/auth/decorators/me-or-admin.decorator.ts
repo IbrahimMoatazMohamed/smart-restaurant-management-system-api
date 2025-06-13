@@ -13,12 +13,12 @@ export const MeOrAdmin = createParamDecorator(
   (data: unknown, ctx: ExecutionContext): number => {
     const request = ctx.switchToHttp().getRequest<RequestWithUser>();
     const user = request.user;
-    const userId = parseInt(request.params.id, 10);
+    const userId = parseInt(request.params.userId, 10);
 
-    if (!user || !(user.role === 'admin' || user.userId === userId)) {
-      throw new ForbiddenException('Access denied');
+    if (user.role === 'admin' || Number(user.userId) === userId) {
+      return userId;
     }
 
-    return userId;
+    throw new ForbiddenException('Access denied');
   },
 );
