@@ -14,7 +14,7 @@ import {
   Query,
   ParseBoolPipe,
   UploadedFile,
-  BadRequestException,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -27,16 +27,18 @@ import {
   ApiBadRequestResponse,
   ApiConsumes,
   ApiBody,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { MealsService } from './meals.service';
 import { CreateMealDto } from './dto/create-meal.dto';
 import { UpdateMealDto } from './dto/update-meal.dto';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { MealResponseDto } from './dto/meal-response.dto';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-import { FileUploadService } from 'src/file-upload/file-upload.service';
+import { ImageUpload } from 'src/file-upload/decorators/image-upload.decorator';
+import { ImageUploadHelper } from 'src/file-upload/helpers/image-upload.helper';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { AdminOnly } from 'src/auth/decorators/roles.decorator';
 
 /**
  * Meals Controller
@@ -55,7 +57,7 @@ export class MealsController {
   constructor(
     private readonly mealsService: MealsService,
     private readonly logger: CustomLoggerService,
-    private readonly fileUploadService: FileUploadService,
+    private readonly imageUploadHelper: ImageUploadHelper,
   ) {
     this.logger.setContext('MealsController');
   }
@@ -66,21 +68,11 @@ export class MealsController {
    * @param createMealDto Meal creation data
    * @returns Created meal
    */
-  @UseInterceptors(
-    FileInterceptor('photo', {
-      storage: diskStorage({
-        destination: './uploads',
-        filename: (req, file, cb) => {
-          const randomName = Array(32)
-            .fill(null)
-            .map(() => Math.round(Math.random() * 16).toString(16))
-            .join('');
-          return cb(null, `${randomName}${extname(file.originalname)}`);
-        },
-      }),
-    }),
-  )
+  @ImageUpload()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Post()
+  @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new meal' })
   @ApiResponse({
@@ -108,12 +100,7 @@ export class MealsController {
   ): Promise<MealResponseDto> {
     this.logger.log(`Creating new meal with name: ${createMealDto.name}`);
 
-    if (photo) {
-      const photoUrl = this.fileUploadService.getFileUrl(photo.filename);
-      createMealDto.photo = photoUrl || '';
-    } else {
-      throw new BadRequestException('Photo is required');
-    }
+    createMealDto.photo = this.imageUploadHelper.extractImageUrl(photo);
 
     return await this.mealsService.create(createMealDto);
   }
@@ -121,7 +108,10 @@ export class MealsController {
   /**
    * Find all soft-deleted meals
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get('soft-deleted')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Find all soft-deleted meals' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -197,21 +187,11 @@ export class MealsController {
    * @param updateMealDto Meal update data
    * @returns Updated meal
    */
-  @UseInterceptors(
-    FileInterceptor('photo', {
-      storage: diskStorage({
-        destination: './uploads',
-        filename: (req, file, cb) => {
-          const randomName = Array(32)
-            .fill(null)
-            .map(() => Math.round(Math.random() * 16).toString(16))
-            .join('');
-          return cb(null, `${randomName}${extname(file.originalname)}`);
-        },
-      }),
-    }),
-  )
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
+  @ImageUpload()
   @Patch(':id')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update a meal' })
   @ApiParam({ name: 'id', description: 'Meal ID' })
   @ApiResponse({
@@ -244,12 +224,7 @@ export class MealsController {
     this.logger.log(`Updating meal with ID: ${id}`);
     delete updateMealDto.photo;
 
-    if (photo) {
-      const photoUrl = this.fileUploadService.getFileUrl(photo.filename);
-      if (photoUrl) {
-        updateMealDto.photo = photoUrl;
-      }
-    }
+    updateMealDto.photo = this.imageUploadHelper.extractImageUrl(photo);
 
     return await this.mealsService.update(+id, updateMealDto);
   }
@@ -259,7 +234,10 @@ export class MealsController {
    *
    * @param id Meal ID
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Delete(':id')
+  @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Soft delete a meal' })
   @ApiParam({ name: 'id', description: 'Meal ID' })
@@ -285,7 +263,10 @@ export class MealsController {
    * @param id Meal ID
    * @returns Restored meal
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Post(':id/restore')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Restore a soft-deleted meal' })
   @ApiParam({ name: 'id', description: 'Meal ID' })
   @ApiResponse({
@@ -310,12 +291,15 @@ export class MealsController {
     return await this.mealsService.restore(id);
   }
 
-  s; /**
+  /**
    * Find meals by active status
    *
    * @param isActive Active status to filter by
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get('by-status/:isActive')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Find meals by active status' })
   @ApiParam({ name: 'isActive', description: 'Active status (true/false)' })
   @ApiResponse({
@@ -339,7 +323,10 @@ export class MealsController {
    *
    * @param id Meal ID
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Delete(':id/soft-delete')
+  @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Soft delete a meal (dedicated endpoint)' })
   @ApiParam({ name: 'id', description: 'Meal ID' })

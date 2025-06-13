@@ -13,6 +13,7 @@ import {
   UseInterceptors,
   Query,
   ParseBoolPipe,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -22,12 +23,16 @@ import {
   ApiNotFoundResponse,
   ApiInternalServerErrorResponse,
   ApiBadRequestResponse,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { MenuCategoriesService } from './menu-categories.service';
 import { CreateMenuCategoryDto } from './dto/create-menu-category.dto';
 import { UpdateMenuCategoryDto } from './dto/update-menu-category.dto';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { MenuCategoryResponseDto } from './dto/menu-category-response.dto';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { AdminOnly } from 'src/auth/decorators/roles.decorator';
 
 /**
  * Menu Categories Controller
@@ -56,7 +61,10 @@ export class MenuCategoriesController {
    * @param createMenuCategoryDto Menu category creation data
    * @returns Created menu category
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Post()
+  @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new menu category' })
   @ApiResponse({
@@ -147,7 +155,10 @@ export class MenuCategoriesController {
    * @param updateMenuCategoryDto Menu category update data
    * @returns Updated menu category
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Patch(':id')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update a menu category' })
   @ApiParam({ name: 'id', description: 'Menu category ID' })
   @ApiResponse({
@@ -182,7 +193,10 @@ export class MenuCategoriesController {
    *
    * @param id Menu category ID
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Delete(':id')
+  @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Soft delete a menu category' })
   @ApiParam({ name: 'id', description: 'Menu category ID' })
@@ -208,7 +222,10 @@ export class MenuCategoriesController {
    * @param id Menu category ID
    * @returns Restored menu category
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Post(':id/restore')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Restore a soft-deleted menu category' })
   @ApiParam({ name: 'id', description: 'Menu category ID' })
   @ApiResponse({
@@ -237,7 +254,10 @@ export class MenuCategoriesController {
   /**
    * Find all soft-deleted menu categories
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get('deleted')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Find all soft-deleted menu categories' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -259,7 +279,10 @@ export class MenuCategoriesController {
    *
    * @param isActive Active status to filter by
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get('by-status/:isActive')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Find menu categories by active status' })
   @ApiParam({ name: 'isActive', description: 'Active status (true/false)' })
   @ApiResponse({
@@ -286,7 +309,10 @@ export class MenuCategoriesController {
    *
    * @param id Menu category ID
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Delete(':id/soft-delete')
+  @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Soft delete a menu category (dedicated endpoint)' })
   @ApiParam({ name: 'id', description: 'Menu category ID' })
@@ -313,7 +339,10 @@ export class MenuCategoriesController {
    *
    * @param id Menu category ID
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Delete(':id/hard-delete')
+  @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Hard delete a menu category (permanent deletion)' })
   @ApiParam({ name: 'id', description: 'Menu category ID' })

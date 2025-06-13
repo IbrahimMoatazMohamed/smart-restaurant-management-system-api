@@ -9,6 +9,7 @@ import {
   HttpStatus,
   HttpCode,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -19,12 +20,16 @@ import {
   ApiInternalServerErrorResponse,
   ApiBadRequestResponse,
   ApiConflictResponse,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { TablesService } from './tables.service';
 import { CreateTableDto } from './dto/create-table.dto';
 import { UpdateTableDto } from './dto/update-table.dto';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { TableResponseDto } from './dto/table-response.dto';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { AdminOnly } from 'src/auth/decorators/roles.decorator';
 
 /**
  * Tables Controller
@@ -52,7 +57,10 @@ export class TablesController {
    * @param createTableDto Table creation data
    * @returns Created table
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Post()
+  @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new table' })
   @ApiResponse({
@@ -84,7 +92,10 @@ export class TablesController {
    *
    * @returns List of all tables
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all tables' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -163,7 +174,10 @@ export class TablesController {
    * @param updateTableDto Table update data
    * @returns Updated table
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Patch(':id')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update a table' })
   @ApiParam({ name: 'id', description: 'Table ID' })
   @ApiResponse({
@@ -197,7 +211,10 @@ export class TablesController {
    *
    * @param id Table ID
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Delete(':id')
+  @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a table' })
   @ApiParam({ name: 'id', description: 'Table ID' })

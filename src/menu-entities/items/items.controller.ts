@@ -14,6 +14,7 @@ import {
   ParseIntPipe,
   ParseBoolPipe,
   BadRequestException,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -31,6 +32,7 @@ import {
   ApiConflictResponse,
   ApiBody,
   ApiConsumes,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { ItemsService } from './items.service';
 import { CreateItemDto } from './dto/create-item.dto';
@@ -38,6 +40,9 @@ import { UpdateItemDto } from './dto/update-item.dto';
 import { ItemStatus } from './entities/item.entity';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { ItemResponseDto } from './dto/item-response.dto';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { AdminOnly } from 'src/auth/decorators/roles.decorator';
 
 /**
  * Items Controller
@@ -66,7 +71,11 @@ export class ItemsController {
    * @param createItemDto Item creation data
    * @returns Created item
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Create a new item' })
   @UseInterceptors(
     FileInterceptor('photo', {
@@ -160,7 +169,11 @@ export class ItemsController {
   /**
    * Find all soft-deleted items
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get('soft-deleted')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Find all soft-deleted items' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -181,7 +194,11 @@ export class ItemsController {
    *
    * @param isActive Active status to filter by
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get('by-status/:isActive')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Find items by active status' })
   @ApiParam({ name: 'isActive', description: 'Active status (true/false)' })
   @ApiResponse({
@@ -233,7 +250,11 @@ export class ItemsController {
    * @param updateItemDto Item update data
    * @returns The updated item
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Patch(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update an item' })
   @ApiParam({ name: 'id', description: 'Item ID' })
   @UseInterceptors(
@@ -293,8 +314,11 @@ export class ItemsController {
    * @param id Item ID
    * @returns Void
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Soft delete an item' })
   @ApiParam({ name: 'id', description: 'Item ID' })
   @ApiResponse({
@@ -319,7 +343,11 @@ export class ItemsController {
    * @param id Item ID
    * @returns Restored item
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Post(':id/restore')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Restore a soft-deleted item' })
   @ApiParam({ name: 'id', description: 'Item ID' })
   @ApiResponse({
@@ -349,8 +377,11 @@ export class ItemsController {
    *
    * @param id Item ID
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Delete(':id/soft-delete')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Soft delete an item (dedicated endpoint)' })
   @ApiParam({ name: 'id', description: 'Item ID' })
   @ApiResponse({
@@ -367,30 +398,5 @@ export class ItemsController {
     this.logger.log(`Soft deleting item with ID: ${id}`);
 
     await this.itemsService.softDelete(id);
-  }
-
-  /**
-   * Permanently delete an item
-   *
-   * @param id Item ID
-   */
-  @Delete(':id/permanent-delete')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Permanently delete an item' })
-  @ApiParam({ name: 'id', description: 'Item ID' })
-  @ApiResponse({
-    status: HttpStatus.NO_CONTENT,
-    description: 'Item has been successfully permanently deleted.',
-  })
-  @ApiNotFoundResponse({
-    description: 'Item not found.',
-  })
-  @ApiInternalServerErrorResponse({
-    description: 'Failed to permanently delete item.',
-  })
-  async permanentDelete(@Param('id', ParseIntPipe) id: number): Promise<void> {
-    this.logger.log(`Permanently deleting item with ID: ${id}`);
-
-    await this.itemsService.remove(id);
   }
 }

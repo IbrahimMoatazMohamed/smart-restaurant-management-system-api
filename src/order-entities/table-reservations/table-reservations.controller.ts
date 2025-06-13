@@ -10,6 +10,7 @@ import {
   ParseIntPipe,
   HttpStatus,
   HttpCode,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -24,6 +25,11 @@ import { CreateTableReservationDto } from './dto/create-table-reservation.dto';
 import { UpdateTableReservationDto } from './dto/update-table-reservation.dto';
 import { TableReservationResponseDto } from './dto/table-reservation-response.dto';
 import { ReservationStatus } from './entities/table-reservation.entity';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { AdminOnly } from 'src/auth/decorators/roles.decorator';
+import { ApiBearerAuth } from '@nestjs/swagger';
+import { MeOrAdmin } from 'src/auth/decorators/me-or-admin.decorator';
 
 @ApiTags('table-reservations')
 @Controller('table-reservations')
@@ -48,7 +54,10 @@ export class TableReservationsController {
     return this.tableReservationsService.create(createTableReservationDto);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all table reservations' })
   @ApiResponse({
     status: 200,
@@ -73,7 +82,10 @@ export class TableReservationsController {
     return this.tableReservationsService.findAll(date, status);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get('table/:tableId')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get reservations for a specific table' })
   @ApiResponse({
     status: 200,
@@ -90,7 +102,9 @@ export class TableReservationsController {
     return this.tableReservationsService.findByTable(tableId);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('user/:userId')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get reservations for a specific user' })
   @ApiResponse({
     status: 200,
@@ -102,12 +116,15 @@ export class TableReservationsController {
     description: 'ID of the user to get reservations for',
   })
   async findByUser(
-    @Param('userId', ParseIntPipe) userId: number,
+    @MeOrAdmin() userId: number,
   ): Promise<TableReservationResponseDto[]> {
     return this.tableReservationsService.findByUser(userId);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get(':id')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get a specific table reservation' })
   @ApiResponse({
     status: 200,
@@ -122,7 +139,10 @@ export class TableReservationsController {
     return this.tableReservationsService.findOne(id);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Patch(':id')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update a table reservation' })
   @ApiResponse({
     status: 200,
@@ -140,7 +160,10 @@ export class TableReservationsController {
     return this.tableReservationsService.update(id, updateTableReservationDto);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Patch(':id/cancel')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Cancel a table reservation' })
   @ApiResponse({
     status: 200,
@@ -155,7 +178,10 @@ export class TableReservationsController {
     return this.tableReservationsService.cancel(id);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Patch(':id/confirm')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Confirm a table reservation' })
   @ApiResponse({
     status: 200,
@@ -170,7 +196,10 @@ export class TableReservationsController {
     return this.tableReservationsService.confirm(id);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Patch(':id/complete')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Mark a table reservation as completed' })
   @ApiResponse({
     status: 200,
@@ -185,7 +214,10 @@ export class TableReservationsController {
     return this.tableReservationsService.complete(id);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Delete(':id')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Delete a table reservation' })
   @ApiResponse({
     status: 204,

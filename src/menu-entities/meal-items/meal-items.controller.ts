@@ -16,13 +16,21 @@ import { CreateMealItemDto } from './dto/create-meal-item.dto';
 import { UpdateMealItemDto } from './dto/update-meal-item.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { MealItem } from './entities/meal-item.entity';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { AdminOnly } from 'src/auth/decorators/roles.decorator';
+import { ApiBearerAuth } from '@nestjs/swagger';
+import { UseGuards } from '@nestjs/common';
 
 @ApiTags('meal-items')
 @Controller('meal-items')
 export class MealItemsController {
   constructor(private readonly mealItemsService: MealItemsService) {}
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Post()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Create a new meal item' })
   @ApiResponse({
     status: 201,
@@ -33,7 +41,10 @@ export class MealItemsController {
     return this.mealItemsService.create(createMealItemDto);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all meal items' })
   @ApiResponse({
     status: 200,
@@ -46,7 +57,10 @@ export class MealItemsController {
     return this.mealItemsService.findAll(includeDeleted);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get('deleted')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all soft-deleted meal items' })
   @ApiResponse({
     status: 200,
@@ -57,7 +71,10 @@ export class MealItemsController {
     return this.mealItemsService.findAllSoftDeleted();
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get('meal/:mealId')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all meal items for a specific meal' })
   @ApiParam({ name: 'mealId', description: 'ID of the meal' })
   @ApiResponse({
@@ -72,7 +89,10 @@ export class MealItemsController {
     return this.mealItemsService.findByMealId(mealId, includeDeleted);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Get(':mealId/:itemId')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get a specific meal item' })
   @ApiParam({ name: 'mealId', description: 'ID of the meal' })
   @ApiParam({ name: 'itemId', description: 'ID of the item' })
@@ -88,7 +108,10 @@ export class MealItemsController {
     return this.mealItemsService.findOne(mealId, itemId);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Patch(':mealId/:itemId')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update a meal item' })
   @ApiParam({ name: 'mealId', description: 'ID of the meal' })
   @ApiParam({ name: 'itemId', description: 'ID of the item' })
@@ -105,7 +128,10 @@ export class MealItemsController {
     return this.mealItemsService.update(mealId, itemId, updateMealItemDto);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Delete(':mealId/:itemId')
+  @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Hard delete a meal item' })
   @ApiParam({ name: 'mealId', description: 'ID of the meal' })
@@ -121,7 +147,10 @@ export class MealItemsController {
     return this.mealItemsService.remove(mealId, itemId);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Delete(':mealId/:itemId/soft')
+  @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Soft delete a meal item' })
   @ApiParam({ name: 'mealId', description: 'ID of the meal' })
@@ -137,7 +166,10 @@ export class MealItemsController {
     return this.mealItemsService.softDelete(mealId, itemId);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
   @Post(':mealId/:itemId/restore')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Restore a soft-deleted meal item' })
   @ApiParam({ name: 'mealId', description: 'ID of the meal' })
   @ApiParam({ name: 'itemId', description: 'ID of the item' })
