@@ -13,6 +13,8 @@ async function bootstrap() {
       'http://localhost:5173',
       'http://localhost:8081',
       'https://frontend-qny7i.ondigitalocean.app',
+      'http://164.92.206.108:8080',
+      'http://164.92.206.108',
       process.env.FRONTEND_URL,
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
