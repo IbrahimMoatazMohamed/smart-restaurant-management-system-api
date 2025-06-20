@@ -36,7 +36,7 @@ import { TableReservationsModule } from './order-entities/table-reservations/tab
     }),
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'uploads'),
-      serveRoot: '/uploads',
+      serveRoot: '/api/uploads',
     }),
     LoggerModule,
     UsersModule,

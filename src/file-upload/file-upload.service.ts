@@ -11,7 +11,6 @@ export class FileUploadService {
   constructor(private configService: ConfigService) {
     this.baseUrl =
       this.configService.get<string>('API_BASE_URL') || 'http://localhost:3030';
-    // Ensure uploads directory exists
     const uploadPath = join(process.cwd(), 'uploads');
     if (!existsSync(uploadPath)) {
       this.logger.log(`Creating uploads directory at ${uploadPath}`);
@@ -26,15 +25,12 @@ export class FileUploadService {
    */
   getFileUrl(filename: string): string | null {
     if (!filename) return null;
-    // If the filename already includes the base URL, return it as is
     if (filename.startsWith('http')) {
       return filename;
     }
-    // If the filename already includes /uploads, just prepend the base URL
     if (filename.startsWith('/uploads/')) {
       return `${this.baseUrl}${filename}`;
     }
-    // Otherwise, construct the full URL
     return `${this.baseUrl}/uploads/${filename}`;
   }
 
