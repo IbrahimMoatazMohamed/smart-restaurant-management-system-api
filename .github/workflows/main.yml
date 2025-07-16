@@ -3,7 +3,7 @@ name: Deploy to DigitalOcean
 on:
   push:
     branches:
-      - main  
+      - main
   pull_request:
     types: [closed]
     branches:
@@ -15,17 +15,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Set up SSH key
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.DO_SSH_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H 164.92.206.108 >> ~/.ssh/known_hosts
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DO_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H 164.92.206.108 >> ~/.ssh/known_hosts
 
-    - name: Deploy via SSH
-      run: |
-        ssh -i ~/.ssh/id_rsa root@164.92.206.108 "
-          cd /var/www/html/server &&
-          git pull &&
-          pm2 restart server
-        "
+      - name: Deploy via SSH
+        run: |
+          ssh -i ~/.ssh/id_rsa root@164.92.206.108 "
+            cd /var/www/html/server &&
+            git pull &&
+            pm2 restart nextjs
+          "
