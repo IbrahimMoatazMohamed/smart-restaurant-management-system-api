@@ -98,6 +98,24 @@ export class IngredientsService {
   }
 
   /**
+   * Get all ingredients including soft-deleted ones
+   *
+   * @returns List of all ingredients including soft-deleted ones
+   */
+  async findAllWithDeleted(): Promise<Ingredient[]> {
+    try {
+      this.logger.log('Finding all ingredients including soft-deleted ones');
+      return await this.ingredientsRepository.find({
+        relations: ['category'],
+        withDeleted: true,
+      });
+    } catch (error) {
+      this.logger.logError(error, 'IngredientsService.findAllWithDeleted');
+      throw new InternalServerErrorException('Failed to find ingredients');
+    }
+  }
+
+  /**
    * Find one ingredient by ID
    * @param id Ingredient ID
    * @returns The found ingredient
@@ -120,6 +138,25 @@ export class IngredientsService {
         error,
         [NotFoundException],
         'Failed to find ingredient',
+      );
+    }
+  }
+
+  async findByCategory(categoryId: number): Promise<Ingredient[]> {
+    try {
+      const ingredients = await this.ingredientsRepository.find({
+        where: { categoryId },
+      });
+      return ingredients;
+    } catch (error) {
+      this.logger.logError(error, 'IngredientsService.findByCategory', {
+        categoryId,
+      });
+
+      return handleError(
+        error,
+        [NotFoundException],
+        'Failed to find ingredients by category',
       );
     }
   }
@@ -183,23 +220,67 @@ export class IngredientsService {
   }
 
   /**
-   * Remove an ingredient
+   * Soft delete an ingredient
    * @param id Ingredient ID
    */
   async remove(id: number): Promise<void> {
     try {
-      this.logger.log(`Removing ingredient with ID: ${id}`);
+      this.logger.log(`Soft deleting ingredient with ID: ${id}`);
 
       await this.findOne(id);
 
-      await this.ingredientsRepository.delete(id);
+      await this.ingredientsRepository.softDelete(id);
     } catch (error) {
       return handleError(
         error,
         [NotFoundException],
-        'Failed to remove ingredient',
+        'Failed to soft delete ingredient',
 
-        () => this.logger.logError(error, 'IngredientsService.remove', { id }),
+        () =>
+          this.logger.logError(error, 'IngredientsService.softDelete', { id }),
+      );
+    }
+  }
+
+  /**
+   * Delete ingredients by category ID
+   * @param categoryId Category ID
+   */
+  async deleteByCategoryId(categoryId: number): Promise<void> {
+    try {
+      this.logger.log(`Deleting ingredients by category ID: ${categoryId}`);
+
+      await this.ingredientsRepository.softDelete({ categoryId });
+    } catch (error) {
+      return handleError(
+        error,
+        [NotFoundException],
+        'Failed to delete ingredients by category ID',
+
+        () =>
+          this.logger.logError(error, 'IngredientsService.deleteByCategoryId', {
+            categoryId,
+          }),
+      );
+    }
+  }
+
+  /**
+   * Restore an ingredient
+   * @param id Ingredient ID
+   */
+  async restore(id: number): Promise<void> {
+    try {
+      this.logger.log(`Restoring ingredient with ID: ${id}`);
+
+      await this.ingredientsRepository.restore(id);
+    } catch (error) {
+      return handleError(
+        error,
+        [NotFoundException],
+        'Failed to restore ingredient',
+
+        () => this.logger.logError(error, 'IngredientsService.restore', { id }),
       );
     }
   }

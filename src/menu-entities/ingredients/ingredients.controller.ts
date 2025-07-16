@@ -9,6 +9,7 @@ import {
   HttpStatus,
   HttpCode,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -21,6 +22,7 @@ import {
   ApiBadRequestResponse,
   getSchemaPath,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { IngredientsService } from './ingredients.service';
 import { CreateIngredientDto } from './dto/create-ingredient.dto';
@@ -100,6 +102,12 @@ export class IngredientsController {
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all ingredients' })
+  @ApiQuery({
+    name: 'withDeleted',
+    required: false,
+    type: Boolean,
+    description: 'Include soft-deleted ingredients',
+  })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'List of all ingredients.',
@@ -108,8 +116,16 @@ export class IngredientsController {
   @ApiInternalServerErrorResponse({
     description: 'Failed to retrieve ingredients.',
   })
-  async findAll(): Promise<Ingredient[]> {
+  async findAll(
+    @Query('withDeleted') withDeleted?: string,
+  ): Promise<Ingredient[]> {
     this.logger.log('Retrieving all ingredients');
+    const includeDeleted = withDeleted === 'true';
+
+    if (includeDeleted) {
+      this.logger.log('Including soft-deleted ingredients');
+      return await this.ingredientsService.findAllWithDeleted();
+    }
 
     return await this.ingredientsService.findAll();
   }
@@ -208,9 +224,37 @@ export class IngredientsController {
     description: 'Failed to delete ingredient.',
   })
   async remove(@Param('id') id: string): Promise<void> {
-    this.logger.log(`Deleting ingredient with ID: ${id}`);
+    this.logger.log(`Soft deleting ingredient with ID: ${id}`);
 
     await this.ingredientsService.remove(+id);
+  }
+
+  /**
+   * Restore a soft-deleted ingredient
+   *
+   * @param id Ingredient ID
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
+  @Post(':id/restore')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Restore a soft-deleted ingredient' })
+  @ApiParam({ name: 'id', description: 'Ingredient ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Ingredient has been successfully restored.',
+  })
+  @ApiNotFoundResponse({
+    description: 'Ingredient not found.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to restore ingredient.',
+  })
+  async restore(@Param('id') id: string): Promise<void> {
+    this.logger.log(`Restoring ingredient with ID: ${id}`);
+
+    await this.ingredientsService.restore(+id);
   }
 
   /**

@@ -4,6 +4,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
   CreateDateColumn,
+  DeleteDateColumn,
   OneToMany,
   ManyToOne,
   JoinColumn,
@@ -60,6 +61,10 @@ export class Ingredient {
   @UpdateDateColumn({ name: 'updated_at' })
   @ApiProperty({ description: 'The last update date of the ingredient record' })
   updatedAt: Date;
+
+  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
+  @ApiProperty({ description: 'The date when the ingredient was soft deleted' })
+  deletedAt: Date;
 
   @Column({ nullable: true })
   @ApiProperty({
