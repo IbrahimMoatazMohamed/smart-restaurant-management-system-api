@@ -6,7 +6,6 @@ import {
   Min,
   IsOptional,
   IsDate,
-  IsBoolean,
   IsPositive,
   IsInt,
 } from 'class-validator';
@@ -98,13 +97,4 @@ export class CreateCouponDto {
   @IsPositive()
   @IsOptional()
   usageLimit?: number;
-
-  @ApiProperty({
-    description: 'Whether the coupon is active',
-    example: true,
-    default: true,
-  })
-  @IsBoolean()
-  @IsOptional()
-  isActive?: boolean;
 }

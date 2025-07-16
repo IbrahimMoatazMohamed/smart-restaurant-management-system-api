@@ -53,10 +53,6 @@ export class CouponResponseDto {
   usageCount: number;
 
   @Expose()
-  @ApiProperty({ description: 'Whether the coupon is active' })
-  isActive: boolean;
-
-  @Expose()
   @ApiProperty({ description: 'Creation timestamp' })
   createdAt: Date;
 

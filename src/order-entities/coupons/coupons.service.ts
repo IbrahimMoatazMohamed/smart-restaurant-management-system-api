@@ -108,21 +108,18 @@ export class CouponsService {
   /**
    * Find all coupons with optional filtering
    *
-   * @param active Optional filter for active coupons
+   * @param withDeleted Optional filter for deleted coupons
    * @param valid Optional filter for valid coupons (not expired and not exceeded usage limit)
    * @returns List of coupons
    */
   async findAll(
-    active?: boolean,
+    withDeleted?: boolean,
     valid?: boolean,
   ): Promise<CouponResponseDto[]> {
     try {
       const now = new Date();
       let whereClause: Record<string, any> = {};
 
-      if (active !== undefined) {
-        whereClause.isActive = active;
-      }
       if (valid) {
         whereClause = {
           ...whereClause,
@@ -130,8 +127,12 @@ export class CouponsService {
         };
       }
 
+      // Convert withDeleted to boolean
+      const includeDeleted = withDeleted === true;
+
       const coupons = await this.couponsRepository.find({
         where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
+        withDeleted: includeDeleted,
       });
 
       const filteredCoupons = valid
@@ -144,7 +145,10 @@ export class CouponsService {
       return filteredCoupons;
     } catch (err) {
       return handleError(err, [], 'Failed to retrieve coupons', () => {
-        this.logger.logError(err, 'CouponsService.findAll');
+        this.logger.logError(err, 'CouponsService.findAll', {
+          withDeleted: withDeleted,
+          valid: valid,
+        });
       });
     }
   }
@@ -232,12 +236,6 @@ export class CouponsService {
         throw new NotFoundException(`Coupon with code '${code}' not found`);
       }
 
-      if (!coupon.isActive) {
-        return {
-          valid: false,
-          message: `Coupon '${code}' is inactive`,
-        };
-      }
       const now = new Date();
       if (coupon.expiryDate && isAfter(new Date(), coupon.expiryDate)) {
         return {
@@ -433,7 +431,7 @@ export class CouponsService {
         );
       }
 
-      const result = await this.couponsRepository.delete(id);
+      const result = await this.couponsRepository.softDelete(id);
 
       if (result.affected === 0) {
         throw new NotFoundException(`Coupon with ID ${id} not found`);
@@ -445,6 +443,39 @@ export class CouponsService {
         `Failed to delete coupon with ID ${id}`,
         () => {
           this.logger.logError(err, 'CouponsService.remove', { id });
+        },
+      );
+    }
+  }
+
+  /**
+   * Restore a coupon
+   *
+   * @param id Coupon ID
+   */
+  async restore(id: number): Promise<void> {
+    try {
+      const coupon = await this.couponsRepository.findOne({
+        where: { id },
+        withDeleted: true,
+      });
+
+      if (!coupon) {
+        throw new NotFoundException(`Coupon with ID ${id} not found`);
+      }
+
+      if (!coupon.deletedAt) {
+        throw new BadRequestException(`Coupon with ID ${id} is not deleted`);
+      }
+
+      await this.couponsRepository.restore(id);
+    } catch (err) {
+      return handleError(
+        err,
+        [BadRequestException, NotFoundException],
+        `Failed to restore coupon with ID ${id}`,
+        () => {
+          this.logger.logError(err, 'CouponsService.restore', { id });
         },
       );
     }

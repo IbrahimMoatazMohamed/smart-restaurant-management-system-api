@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  DeleteDateColumn,
 } from 'typeorm';
 import { Order } from '../../orders/entities/order.entity';
 import { CouponType } from './coupon-type.enum';
@@ -60,10 +61,6 @@ export class Coupon {
   @Column({ default: 0 })
   usageCount: number;
 
-  @ApiProperty({ description: 'Whether the coupon is active' })
-  @Column({ default: true })
-  isActive: boolean;
-
   @OneToMany(() => Order, (order) => order.coupon)
   @ApiProperty({ description: '' })
   orders: Order[];
@@ -75,4 +72,11 @@ export class Coupon {
   @ApiProperty({ description: 'Last update timestamp' })
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  @ApiProperty({
+    description: 'When the coupon was deleted (soft delete)',
+    required: false,
+  })
+  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
+  deletedAt: Date;
 }

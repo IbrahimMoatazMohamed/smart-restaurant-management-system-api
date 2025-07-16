@@ -97,7 +97,7 @@ export class CouponsController {
   /**
    * Get all coupons with optional filtering
    *
-   * @param active Optional filter for active coupons
+   * @param withDeleted Optional filter for deleted coupons
    * @param valid Optional filter for valid coupons (not expired and not exceeded usage limit)
    * @returns List of coupons
    */
@@ -107,10 +107,10 @@ export class CouponsController {
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all coupons' })
   @ApiQuery({
-    name: 'active',
+    name: 'withDeleted',
     required: false,
     type: Boolean,
-    description: 'Filter by active status',
+    description: 'Filter by deleted status',
   })
   @ApiQuery({
     name: 'valid',
@@ -125,13 +125,13 @@ export class CouponsController {
     type: [CouponResponseDto],
   })
   async findAll(
-    @Query('active') active?: boolean,
+    @Query('withDeleted') withDeleted?: boolean,
     @Query('valid') valid?: boolean,
   ): Promise<CouponResponseDto[]> {
     this.logger.log(
-      `Retrieving all coupons with filters: active=${active}, valid=${valid}`,
+      `Retrieving all coupons with filters: withDeleted=${withDeleted}, valid=${valid}`,
     );
-    return await this.couponsService.findAll(active, valid);
+    return await this.couponsService.findAll(withDeleted, valid);
   }
 
   /**
@@ -315,5 +315,39 @@ export class CouponsController {
   async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     this.logger.log(`Deleting coupon with ID: ${id}`);
     await this.couponsService.remove(id);
+  }
+
+  /**
+   * restore a coupon
+   *
+   * @param id Coupon ID
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
+  @Post(':id/restore')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Restore a coupon' })
+  @ApiParam({
+    name: 'id',
+    required: true,
+    description: 'Coupon ID',
+    type: Number,
+  })
+  @ApiResponse({
+    status: HttpStatus.NO_CONTENT,
+    description: 'The coupon has been successfully restored',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Coupon is not deleted',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Coupon not found',
+  })
+  async restore(@Param('id', ParseIntPipe) id: number): Promise<void> {
+    this.logger.log(`Restoring coupon with ID: ${id}`);
+    await this.couponsService.restore(id);
   }
 }
