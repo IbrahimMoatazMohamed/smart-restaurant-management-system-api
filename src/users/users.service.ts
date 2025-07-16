@@ -172,7 +172,6 @@ export class UsersService {
           'imageUrl',
           'country',
         ],
-
       });
       if (!user) {
         throw new NotFoundException(`User with email ${email} not found`);
