@@ -38,15 +38,6 @@ export class IngredientCategory {
   @IsOptional()
   description: string;
 
-  @Column({ default: true })
-  @ApiProperty({
-    description: 'Whether the ingredient category is active',
-    example: true,
-  })
-  @IsBoolean()
-  @IsOptional()
-  isActive: boolean;
-
   @OneToMany(() => Ingredient, (ingredient) => ingredient.category)
   @ApiProperty({
     description: 'The ingredients in this category',

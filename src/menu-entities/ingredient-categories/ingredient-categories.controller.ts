@@ -68,32 +68,12 @@ export class IngredientCategoriesController {
     type: Boolean,
     description: 'Include soft-deleted ingredient categories',
   })
-  @ApiQuery({
-    name: 'name',
-    required: false,
-    type: String,
-    description: 'Filter by ingredient category name',
-  })
-  @ApiQuery({
-    name: 'description',
-    required: false,
-    type: String,
-    description: 'Filter by ingredient category description',
-  })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'List of ingredient categories returned successfully.',
   })
-  findAll(
-    @Query('includeDeleted') includeDeleted?: string,
-    @Query('name') name?: string,
-    @Query('description') description?: string,
-  ) {
-    return this.ingredientCategoriesService.findAll(
-      includeDeleted === 'true',
-      name,
-      description,
-    );
+  findAll(@Query('includeDeleted') includeDeleted?: string) {
+    return this.ingredientCategoriesService.findAll(includeDeleted === 'true');
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -201,29 +181,6 @@ export class IngredientCategoriesController {
       throw new BadRequestException(`Invalid ingredient category ID: ${id}`);
     }
     return this.ingredientCategoriesService.remove(categoryId);
-  }
-
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @AdminOnly()
-  @Delete(':id/soft-delete')
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Soft delete an ingredient category' })
-  @ApiParam({ name: 'id', description: 'Ingredient category ID' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'The ingredient category has been successfully soft deleted.',
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Ingredient category with the provided ID was not found.',
-  })
-  softDelete(@Param('id') id: string) {
-    // Validate that id is a valid number
-    const categoryId = parseInt(id, 10);
-    if (isNaN(categoryId)) {
-      throw new BadRequestException(`Invalid ingredient category ID: ${id}`);
-    }
-    return this.ingredientCategoriesService.softDelete(categoryId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

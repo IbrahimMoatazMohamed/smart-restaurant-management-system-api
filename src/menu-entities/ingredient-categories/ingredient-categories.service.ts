@@ -5,19 +5,21 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { CreateIngredientCategoryDto } from './dto/create-ingredient-category.dto';
 import { UpdateIngredientCategoryDto } from './dto/update-ingredient-category.dto';
 import { IngredientCategory } from './entities/ingredient-category.entity';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { handleDuplicateEntryError } from '../../utils/duplicate-entry-handler.util';
 import { handleError } from '../../utils/error-handler.util';
+import { IngredientsService } from '../ingredients/ingredients.service';
 
 @Injectable()
 export class IngredientCategoriesService {
   constructor(
     @InjectRepository(IngredientCategory)
     private readonly ingredientCategoryRepository: Repository<IngredientCategory>,
+    private readonly ingredientService: IngredientsService,
     private readonly logger: CustomLoggerService,
   ) {
     this.logger.setContext('IngredientCategoriesService');
@@ -75,18 +77,12 @@ export class IngredientCategoriesService {
    * Get all ingredient categories
    *
    * @param includeDeleted Flag to get soft-deleted categories
-   * @param name Filter by ingredient category name
-   * @param description Filter by ingredient category description
    * @returns List of ingredient categories
    */
-  async findAll(
-    includeDeleted = false,
-    name?: string,
-    description?: string,
-  ): Promise<IngredientCategory[]> {
+  async findAll(includeDeleted = false): Promise<IngredientCategory[]> {
     try {
       this.logger.log(
-        `Retrieving all ingredient categories, includeDeleted: ${includeDeleted}, name: ${name}, description: ${description}`,
+        `Retrieving all ingredient categories, includeDeleted: ${includeDeleted}`,
       );
 
       const queryBuilder = this.ingredientCategoryRepository
@@ -99,18 +95,7 @@ export class IngredientCategoriesService {
       const parameters: Record<string, any> = {};
 
       if (!includeDeleted) {
-        whereConditions.push('category.isActive = :isActive');
-        parameters['isActive'] = true;
-      }
-
-      if (name) {
-        whereConditions.push('category.name LIKE :name');
-        parameters['name'] = `%${name}%`;
-      }
-
-      if (description) {
-        whereConditions.push('category.description LIKE :description');
-        parameters['description'] = `%${description}%`;
+        whereConditions.push('category.deleted_at IS NULL');
       }
 
       // Apply where conditions if any exist
@@ -129,8 +114,6 @@ export class IngredientCategoriesService {
         () =>
           this.logger.logError(error, 'IngredientCategoriesService.findAll', {
             includeDeleted,
-            name,
-            description,
           }),
       );
     }
@@ -206,10 +189,6 @@ export class IngredientCategoriesService {
           updateIngredientCategoryDto.description;
       }
 
-      if (updateIngredientCategoryDto.isActive !== undefined) {
-        ingredientCategory.isActive = updateIngredientCategoryDto.isActive;
-      }
-
       await this.ingredientCategoryRepository.save(ingredientCategory);
 
       this.logger.log(`Ingredient category with ID ${id} updated`);
@@ -242,59 +221,16 @@ export class IngredientCategoriesService {
   }
 
   /**
-   * Hard remove an ingredient category
+   * Soft delete an ingredient category using TypeORM's built-in soft delete
    *
    * @param id Ingredient category ID
    */
   async remove(id: number): Promise<void> {
     try {
-      this.logger.log(`Hard removing ingredient category with ID: ${id}`);
-
-      // First verify the category exists
-      const ingredientCategory = await this.findOne(id);
-
-      // Check if the category has ingredients
-      if (ingredientCategory.ingredients?.length > 0) {
-        this.logger.warn(
-          `Cannot delete ingredient category ID ${id} as it has ${ingredientCategory.ingredients.length} associated ingredients`,
-        );
-        throw new ConflictException(
-          `Cannot delete ingredient category as it has ${ingredientCategory.ingredients.length} associated ingredients`,
-        );
-      }
-
-      await this.ingredientCategoryRepository.remove(ingredientCategory);
-      this.logger.log(`Ingredient category with ID ${id} hard removed`);
-    } catch (error) {
-      return handleError(
-        error,
-        [NotFoundException, ConflictException],
-        `Failed to remove ingredient category with ID ${id}`,
-        () =>
-          this.logger.logError(error, 'IngredientCategoriesService.remove', {
-            id,
-          }),
-      );
-    }
-  }
-
-  /**
-   * Soft delete an ingredient category using TypeORM's built-in soft delete
-   *
-   * @param id Ingredient category ID
-   */
-  async softDelete(id: number): Promise<void> {
-    try {
       this.logger.log(`Soft deleting ingredient category with ID: ${id}`);
 
-      // First verify the category exists
-      const ingredientCategory = await this.findOne(id);
+      await this.ingredientService.deleteByCategoryId(id);
 
-      // Set the category to inactive before soft-deleting
-      ingredientCategory.isActive = false;
-      await this.ingredientCategoryRepository.save(ingredientCategory);
-
-      // Use TypeORM's built-in soft delete
       await this.ingredientCategoryRepository.softDelete(id);
       this.logger.log(`Ingredient category with ID ${id} soft deleted`);
     } catch (error) {
@@ -321,12 +257,6 @@ export class IngredientCategoriesService {
    */
   async restore(id: number): Promise<IngredientCategory> {
     try {
-      // Validate that id is a valid number
-      if (!id || isNaN(id)) {
-        this.logger.warn(`Invalid ingredient category ID: ${id}`);
-        throw new BadRequestException(`Invalid ingredient category ID: ${id}`);
-      }
-
       this.logger.log(
         `Restoring soft-deleted ingredient category with ID: ${id}`,
       );
@@ -334,12 +264,6 @@ export class IngredientCategoriesService {
       // Use TypeORM's built-in restore method
       await this.ingredientCategoryRepository.restore(id);
 
-      // Get the restored category
-      const ingredientCategory = await this.findOne(id);
-
-      // Update the category to be active and clear deletion metadata
-      ingredientCategory.isActive = true;
-      await this.ingredientCategoryRepository.save(ingredientCategory);
       this.logger.log(`Ingredient category with ID ${id} restored`);
 
       return this.findOne(id);
@@ -367,6 +291,9 @@ export class IngredientCategoriesService {
 
       // Use withDeleted to include soft-deleted entities and filter to only get deleted ones
       const categories = await this.ingredientCategoryRepository.find({
+        where: {
+          deletedAt: Not(IsNull()),
+        },
         withDeleted: true,
       });
 
@@ -384,37 +311,6 @@ export class IngredientCategoriesService {
             error,
             'IngredientCategoriesService.findAllSoftDeleted',
             {},
-          ),
-      );
-    }
-  }
-
-  /**
-   * Find ingredient categories by active status
-   * @param isActive Active status to filter by
-   * @returns Array of ingredient categories with the specified active status
-   */
-  async findByActiveStatus(isActive: boolean): Promise<IngredientCategory[]> {
-    try {
-      const categories = await this.ingredientCategoryRepository.find({
-        where: { isActive },
-        relations: ['ingredients'],
-      });
-
-      this.logger.log(
-        `Found ${categories.length} ingredient categories with isActive: ${isActive}`,
-      );
-      return categories;
-    } catch (error) {
-      return handleError(
-        error,
-        [],
-        `Failed to retrieve ingredient categories with isActive ${isActive}`,
-        () =>
-          this.logger.logError(
-            error,
-            'IngredientCategoriesService.findByActiveStatus',
-            { isActive },
           ),
       );
     }
