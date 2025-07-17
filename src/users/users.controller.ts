@@ -35,6 +35,8 @@ import { AdminOnly } from '../auth/decorators/roles.decorator';
 import { MeOrAdmin } from '../auth/decorators/me-or-admin.decorator';
 import { ImageUpload } from '../file-upload/decorators/image-upload.decorator';
 import { ImageUploadHelper } from '../file-upload/helpers/image-upload.helper';
+import { RolesService } from '../roles/roles.service';
+import { Param } from '@nestjs/common';
 
 /**
  * Users Controller
@@ -53,6 +55,7 @@ export class UsersController {
     private readonly usersService: UsersService,
     private readonly logger: CustomLoggerService,
     private readonly imageUploadHelper: ImageUploadHelper,
+    private readonly rolesService: RolesService,
   ) {
     this.logger.setContext('UsersController');
   }
@@ -249,5 +252,42 @@ export class UsersController {
     this.logger.log(`Uploading profile image for user with ID: ${userId}`);
     const imageUrl = this.imageUploadHelper.extractImageUrl(photo);
     return await this.usersService.updateProfileImage(userId, imageUrl);
+  }
+
+  /**
+   * Assign a role to a user
+   *
+   * @param userId User ID
+   * @param roleId Role ID
+   */
+  @Post(':userId/roles/:roleId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Assign a role to a user' })
+  @ApiParam({ name: 'userId', description: 'User ID' })
+  @ApiParam({ name: 'roleId', description: 'Role ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Role has been successfully assigned to the user.',
+  })
+  @ApiNotFoundResponse({
+    description: 'User or role not found.',
+  })
+  @ApiForbiddenResponse({
+    description: 'Access denied. Admin role required.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to assign role to user.',
+  })
+  async assignRoleToUser(
+    @Param('userId') userId: string,
+    @Param('roleId') roleId: string,
+  ): Promise<void> {
+    this.logger.log(`Assigning role ID ${roleId} to user ID ${userId}`);
+    await this.rolesService.assignRoleToUser(
+      parseInt(userId, 10),
+      parseInt(roleId, 10),
+    );
   }
 }
