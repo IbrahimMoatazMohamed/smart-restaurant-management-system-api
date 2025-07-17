@@ -5,6 +5,7 @@ import { UsersService } from './users.service';
 import { Users } from './entities/users.entity';
 import { CustomLoggerService } from '../logger/logger.service';
 import { ImageUploadHelper } from '../file-upload/helpers/image-upload.helper';
+import { RolesService } from '../roles/roles.service';
 
 describe('UsersController', () => {
   let controller: UsersController;
@@ -41,6 +42,13 @@ describe('UsersController', () => {
             extractImageUrl: jest
               .fn()
               .mockReturnValue('http://example.com/image.jpg'),
+          },
+        },
+        {
+          provide: RolesService,
+          useValue: {
+            assignRoleToUser: jest.fn(),
+            findById: jest.fn(),
           },
         },
       ],

@@ -14,6 +14,7 @@ import { CustomLoggerService } from '../logger/logger.service';
 import { NotFoundException } from '@nestjs/common';
 import * as passwordUtil from '../utils/password.util';
 import Gender from './types/gender';
+import { Role } from '../roles/entities/role.entity';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -33,7 +34,15 @@ describe('UsersService', () => {
     id: 1,
     email: 'test@example.com',
     name: 'Test User',
-    role: 'user',
+    role: {
+      id: 1,
+      name: 'user',
+      permissions: {},
+      description: '',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as Role,
+    roleId: 1,
     password: 'hashedpassword',
     phone: '1234567890',
     gender: Gender.MALE,
@@ -81,7 +90,7 @@ describe('UsersService', () => {
       email: 'new@example.com',
       name: 'New User',
       password: 'password123',
-      role: 'user',
+      roleId: 1,
       phone: '9876543210',
       gender: Gender.FEMALE,
       country: 'CA',
@@ -165,7 +174,15 @@ describe('UsersService', () => {
       email: 'existing@example.com',
       name: 'Existing User',
       password: 'hashed_password',
-      role: 'user',
+      roleId: 1,
+      role: {
+        id: 1,
+        name: 'user',
+        permissions: {},
+        description: '',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as Role,
       phone: '1234567890',
       gender: Gender.MALE,
       country: 'US',

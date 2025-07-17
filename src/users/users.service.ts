@@ -199,18 +199,17 @@ export class UsersService {
     try {
       const user = await this.usersRepository.findOne({
         where: { email: email.toLowerCase() },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          roleId: true,
-          password: true,
-          phone: true,
-          gender: true,
-          imageUrl: true,
-          country: true,
-        },
-        relations: ['role'],
+        select: [
+          'id',
+          'email',
+          'name',
+          'role',
+          'password',
+          'phone',
+          'gender',
+          'imageUrl',
+          'country',
+        ],
       });
       if (!user) {
         throw new NotFoundException(`User with email ${email} not found`);

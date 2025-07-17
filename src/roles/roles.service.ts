@@ -13,7 +13,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { CustomLoggerService } from '../logger/logger.service';
 import { handleError } from '../utils/error-handler.util';
-import { Users } from 'src/users/entities/users.entity';
 
 /**
  * Roles Service
@@ -356,11 +355,9 @@ export class RolesService {
    */
   async assignRoleToUser(userId: number, roleId: number): Promise<void> {
     try {
-      // Validate that the role exists
       const role = await this.findOne(roleId);
 
-      // Get the user from the database
-      const userRepository = this.dataSource.getRepository(Users);
+      const userRepository = this.dataSource.getRepository('users');
       const user = await userRepository.findOne({ where: { id: userId } });
 
       if (!user) {

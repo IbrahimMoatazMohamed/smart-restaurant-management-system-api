@@ -19,6 +19,7 @@ import { join } from 'path';
 import { MealItemsModule } from './menu-entities/meal-items/meal-items.module';
 import { TableReservationsModule } from './order-entities/table-reservations/table-reservations.module';
 import { RolesModule } from './roles/roles.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { RolesModule } from './roles/roles.module';
     MealItemsModule,
     TableReservationsModule,
     RolesModule,
+    DashboardModule,
   ],
   controllers: [],
   providers: [],

@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { RolesController } from './roles.controller';
 import { RolesService } from './roles.service';
+import { Role } from './entities/role.entity';
+import { CustomLoggerService } from '../logger/logger.service';
 
 describe('RolesController', () => {
   let controller: RolesController;
@@ -8,7 +12,39 @@ describe('RolesController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [RolesController],
-      providers: [RolesService],
+      providers: [
+        RolesService,
+        {
+          provide: getRepositoryToken(Role),
+          useValue: {
+            find: jest.fn(),
+            findOne: jest.fn(),
+            create: jest.fn(),
+            save: jest.fn(),
+            update: jest.fn(),
+            remove: jest.fn(),
+          },
+        },
+        {
+          provide: CustomLoggerService,
+          useValue: {
+            setContext: jest.fn(),
+            log: jest.fn(),
+            warn: jest.fn(),
+            error: jest.fn(),
+            logError: jest.fn(),
+          },
+        },
+        {
+          provide: DataSource,
+          useValue: {
+            getRepository: jest.fn().mockReturnValue({
+              findOne: jest.fn(),
+              save: jest.fn(),
+            }),
+          },
+        },
+      ],
     }).compile();
 
     controller = module.get<RolesController>(RolesController);

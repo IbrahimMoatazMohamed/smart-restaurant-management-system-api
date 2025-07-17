@@ -2,10 +2,10 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Exclude, Expose } from 'class-transformer';
 import { OrderResponseDto } from './order-response.dto';
 import { Table } from 'typeorm';
-import { MealResponseDto } from 'src/menu-entities/meals/dto/meal-response.dto';
-import { ItemResponseDto } from 'src/menu-entities/items/dto/item-response.dto';
-import { Users } from 'src/users/entities/users.entity';
-import { Coupon } from 'src/order-entities/coupons/entities/coupon.entity';
+import { MealResponseDto } from '../../../menu-entities/meals/dto/meal-response.dto';
+import { ItemResponseDto } from '../../../menu-entities/items/dto/item-response.dto';
+import { Users } from '../../../users/entities/users.entity';
+import { Coupon } from '../../../order-entities/coupons/entities/coupon.entity';
 
 @Exclude()
 export class OrderWithRelationsResponseDto extends OrderResponseDto {

@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Exclude, Expose, Type } from 'class-transformer';
 import Gender from '../types/gender';
-import { RoleResponseDto } from 'src/roles/dto/role-response.dto';
+import { RoleResponseDto } from '../../roles/dto/role-response.dto';
 
 @Exclude()
 export class UserResponseDto {
