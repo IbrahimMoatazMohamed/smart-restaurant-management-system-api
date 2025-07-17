@@ -275,11 +275,22 @@ export class IngredientsService {
       const ingredient = await this.ingredientsRepository.findOne({
         where: { id },
         withDeleted: true,
+        relations: ['category'],
       });
 
       if (!ingredient) {
         this.logger.warn(`Ingredient with ID ${id} not found`);
         throw new NotFoundException(`Ingredient with ID ${id} not found`);
+      }
+
+      // Check if the ingredient's category is deleted
+      if (ingredient.category && ingredient.category.deletedAt) {
+        this.logger.warn(
+          `Cannot restore ingredient with ID ${id} because its category is deleted`,
+        );
+        throw new BadRequestException(
+          `Cannot restore ingredient because its category is deleted. Please restore the category first.`,
+        );
       }
 
       await this.ingredientsRepository.restore(id);
@@ -288,7 +299,7 @@ export class IngredientsService {
     } catch (error) {
       return handleError(
         error,
-        [NotFoundException],
+        [NotFoundException, BadRequestException],
         'Failed to restore ingredient',
 
         () => this.logger.logError(error, 'IngredientsService.restore', { id }),

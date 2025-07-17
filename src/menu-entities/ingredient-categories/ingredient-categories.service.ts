@@ -261,7 +261,6 @@ export class IngredientCategoriesService {
         `Restoring soft-deleted ingredient category with ID: ${id}`,
       );
 
-      // Use TypeORM's built-in restore method
       await this.ingredientCategoryRepository.restore(id);
 
       this.logger.log(`Ingredient category with ID ${id} restored`);

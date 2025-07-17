@@ -298,6 +298,7 @@ export class ItemsService {
       const deletedItem = await this.itemsRepository.findOne({
         where: { id },
         withDeleted: true,
+        relations: ['category'],
       });
 
       if (!deletedItem) {
@@ -308,11 +309,19 @@ export class ItemsService {
         throw new BadRequestException(`Item with ID ${id} is not deleted`);
       }
 
+      if (deletedItem.category && deletedItem.category.deletedAt) {
+        this.logger.warn(
+          `Cannot restore item with ID ${id} because its category is deleted`,
+        );
+        throw new BadRequestException(
+          `Cannot restore item because its category is deleted. Please restore the category first.`,
+        );
+      }
+
       await this.itemsRepository.restore(id);
 
       const item = await this.findOne(id);
 
-      // Item is automatically active when restored
       await this.itemsRepository.save(item);
       this.logger.log(`Item with ID ${id} restored`);
 
@@ -394,16 +403,13 @@ export class ItemsService {
    */
   async remove(id: number): Promise<Item | null> {
     try {
-      // Validate that id is a valid number
       if (!id || isNaN(id)) {
         this.logger.warn(`Invalid item ID: ${id}`);
         throw new BadRequestException(`Invalid item ID: ${id}`);
       }
 
-      // Verify item exists before soft deleting
       await this.findOne(id);
 
-      // Soft delete the item
       await this.itemsRepository.softDelete(id);
 
       this.logger.log(`Item with ID ${id} soft deleted`);

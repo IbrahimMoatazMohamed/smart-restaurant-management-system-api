@@ -23,6 +23,11 @@ export enum OrderStatus {
   CANCELLED = 'cancelled',
 }
 
+export enum OrderType {
+  DINE_IN = 'dine_in',
+  TAKEAWAY = 'takeaway',
+}
+
 @Entity('orders')
 export class Order {
   @PrimaryGeneratedColumn()
@@ -36,6 +41,14 @@ export class Order {
     example: OrderStatus.PENDING,
   })
   status: OrderStatus;
+
+  @Column({ type: 'enum', enum: OrderType, default: OrderType.DINE_IN })
+  @ApiProperty({
+    description: 'The type of order (dine-in or takeaway)',
+    enum: OrderType,
+    example: OrderType.DINE_IN,
+  })
+  orderType: OrderType;
 
   @Column('decimal', { precision: 10, scale: 2 })
   @ApiProperty({

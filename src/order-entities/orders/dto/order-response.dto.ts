@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Exclude, Expose } from 'class-transformer';
-import { OrderStatus } from '../entities/order.entity';
+import { OrderStatus, OrderType } from '../entities/order.entity';
 
 @Exclude()
 export class OrderResponseDto {
@@ -15,6 +15,14 @@ export class OrderResponseDto {
     example: OrderStatus.PENDING,
   })
   status: OrderStatus;
+
+  @Expose()
+  @ApiProperty({
+    description: 'The type of order (dine-in or takeaway)',
+    enum: OrderType,
+    example: OrderType.DINE_IN,
+  })
+  orderType: OrderType;
 
   @Expose()
   @ApiProperty({

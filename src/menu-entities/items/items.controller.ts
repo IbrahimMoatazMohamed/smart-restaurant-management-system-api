@@ -42,7 +42,10 @@ import { CustomLoggerService } from '../../logger/logger.service';
 import { ItemResponseDto } from './dto/item-response.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
-import { AdminOnly } from '../../auth/decorators/roles.decorator';
+import {
+  AdminOnly,
+  RequirePermissions,
+} from '../../auth/decorators/roles.decorator';
 
 /**
  * Items Controller
@@ -73,6 +76,7 @@ export class ItemsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('items.create')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiBearerAuth('JWT-auth')
@@ -171,6 +175,7 @@ export class ItemsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('items.read')
   @Get('soft-deleted')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
@@ -253,6 +258,7 @@ export class ItemsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('items.update')
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
@@ -317,6 +323,7 @@ export class ItemsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('items.delete')
   @Post(':id/restore')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
@@ -351,6 +358,7 @@ export class ItemsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('items.delete')
   @Delete(':id/soft-delete')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiBearerAuth('JWT-auth')

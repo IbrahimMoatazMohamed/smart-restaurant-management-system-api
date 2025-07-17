@@ -108,7 +108,7 @@ export class AuthService {
 
     const permissions: string[] = Object.entries(rolePermissions).flatMap(
       ([resource, actions]) =>
-        actions.map((action: string) => `${resource}:${action}`),
+        actions.map((action: string) => `${resource}.${action}`),
     );
 
     const payload = {

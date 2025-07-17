@@ -29,7 +29,10 @@ import {
 import { ItemIngredientWithRelationsResponseDto } from './dto/item-ingredients-with-relations-response.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
-import { AdminOnly } from '../../auth/decorators/roles.decorator';
+import {
+  AdminOnly,
+  RequirePermissions,
+} from '../../auth/decorators/roles.decorator';
 
 /**
  * Item Ingredients Controller
@@ -57,6 +60,7 @@ export class ItemIngredientsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('itemIngredients.create')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiBearerAuth('JWT-auth')
@@ -90,6 +94,7 @@ export class ItemIngredientsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('itemIngredients.read')
   @Get()
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
@@ -114,6 +119,7 @@ export class ItemIngredientsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('itemIngredients.read')
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
@@ -142,6 +148,7 @@ export class ItemIngredientsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('itemIngredients.read')
   @Get('item/:itemId')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
@@ -170,6 +177,7 @@ export class ItemIngredientsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('itemIngredients.read')
   @Get('ingredient/:ingredientId')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
@@ -201,6 +209,7 @@ export class ItemIngredientsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('itemIngredients.update')
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
@@ -239,6 +248,7 @@ export class ItemIngredientsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('itemIngredients.delete')
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiBearerAuth('JWT-auth')

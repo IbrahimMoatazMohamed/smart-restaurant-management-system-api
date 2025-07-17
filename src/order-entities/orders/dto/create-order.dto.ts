@@ -6,7 +6,9 @@ import {
   IsArray,
   IsOptional,
   Min,
+  IsEnum,
 } from 'class-validator';
+import { OrderType } from '../entities/order.entity';
 
 export class CreateOrderDto {
   @ApiProperty({
@@ -16,6 +18,16 @@ export class CreateOrderDto {
   @IsOptional()
   @IsNumber()
   tableId?: number;
+
+  @ApiProperty({
+    description: 'The type of order (dine-in or takeaway)',
+    enum: OrderType,
+    example: OrderType.DINE_IN,
+    default: OrderType.DINE_IN,
+  })
+  @IsOptional()
+  @IsEnum(OrderType)
+  orderType?: OrderType;
 
   @ApiProperty({
     description: 'The total amount of the order',

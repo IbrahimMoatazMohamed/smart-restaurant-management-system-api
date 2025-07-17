@@ -32,7 +32,10 @@ import { CustomLoggerService } from '../../logger/logger.service';
 import { MenuCategoryResponseDto } from './dto/menu-category-response.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
-import { AdminOnly } from '../../auth/decorators/roles.decorator';
+import {
+  AdminOnly,
+  RequirePermissions,
+} from '../../auth/decorators/roles.decorator';
 
 /**
  * Menu Categories Controller
@@ -64,6 +67,7 @@ export class MenuCategoriesController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Post()
+  @RequirePermissions('menuCategories.create')
   @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new menu category' })
@@ -158,6 +162,7 @@ export class MenuCategoriesController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Patch(':id')
+  @RequirePermissions('menuCategories.update')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update a menu category' })
   @ApiParam({ name: 'id', description: 'Menu category ID' })
@@ -196,6 +201,7 @@ export class MenuCategoriesController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Delete(':id')
+  @RequirePermissions('menuCategories.delete')
   @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Soft delete a menu category' })
@@ -224,6 +230,7 @@ export class MenuCategoriesController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('menuCategories.delete')
   @Post(':id/restore')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Restore a soft-deleted menu category' })
@@ -256,6 +263,7 @@ export class MenuCategoriesController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('menuCategories.read')
   @Get('deleted')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Find all soft-deleted menu categories' })
@@ -281,6 +289,7 @@ export class MenuCategoriesController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('menuCategories.read')
   @Get('by-status/:isActive')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Find menu categories by active status' })
@@ -311,6 +320,7 @@ export class MenuCategoriesController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('menuCategories.delete')
   @Delete(':id/soft-delete')
   @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -341,6 +351,7 @@ export class MenuCategoriesController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('menuCategories.delete')
   @Delete(':id/hard-delete')
   @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)

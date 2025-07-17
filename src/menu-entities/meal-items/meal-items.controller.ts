@@ -18,7 +18,10 @@ import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { MealItem } from './entities/meal-item.entity';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
-import { AdminOnly } from '../../auth/decorators/roles.decorator';
+import {
+  AdminOnly,
+  RequirePermissions,
+} from '../../auth/decorators/roles.decorator';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { UseGuards } from '@nestjs/common';
 
@@ -29,6 +32,7 @@ export class MealItemsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('mealItems.create')
   @Post()
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Create a new meal item' })
@@ -43,6 +47,7 @@ export class MealItemsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('mealItems.read')
   @Get()
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all meal items' })
@@ -59,6 +64,7 @@ export class MealItemsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('mealItems.read')
   @Get('deleted')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all soft-deleted meal items' })
@@ -73,6 +79,7 @@ export class MealItemsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('mealItems.read')
   @Get('meal/:mealId')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all meal items for a specific meal' })
@@ -91,6 +98,7 @@ export class MealItemsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('mealItems.read')
   @Get(':mealId/:itemId')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get a specific meal item' })
@@ -110,6 +118,7 @@ export class MealItemsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('mealItems.update')
   @Patch(':mealId/:itemId')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update a meal item' })
@@ -130,6 +139,7 @@ export class MealItemsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('mealItems.delete')
   @Delete(':mealId/:itemId')
   @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -149,6 +159,7 @@ export class MealItemsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('mealItems.delete')
   @Delete(':mealId/:itemId/soft')
   @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -168,6 +179,7 @@ export class MealItemsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('mealItems.delete')
   @Post(':mealId/:itemId/restore')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Restore a soft-deleted meal item' })

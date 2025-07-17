@@ -38,7 +38,10 @@ import { ImageUpload } from '../../file-upload/decorators/image-upload.decorator
 import { ImageUploadHelper } from '../../file-upload/helpers/image-upload.helper';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
-import { AdminOnly } from '../../auth/decorators/roles.decorator';
+import {
+  AdminOnly,
+  RequirePermissions,
+} from '../../auth/decorators/roles.decorator';
 
 /**
  * Meals Controller
@@ -71,6 +74,7 @@ export class MealsController {
   @ImageUpload()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('meals.create')
   @Post()
   @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.CREATED)
@@ -110,6 +114,7 @@ export class MealsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('meals.read')
   @Get('soft-deleted')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Find all soft-deleted meals' })
@@ -216,6 +221,7 @@ export class MealsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @ImageUpload()
+  @RequirePermissions('meals.update')
   @Patch(':id')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update a meal' })
@@ -262,6 +268,7 @@ export class MealsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('meals.delete')
   @Delete(':id')
   @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -291,6 +298,7 @@ export class MealsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('meals.delete')
   @Post(':id/restore')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Restore a soft-deleted meal' })
@@ -324,6 +332,7 @@ export class MealsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('meals.read')
   @Get('by-deleted-status/:isDeleted')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Find meals by deleted status' })
@@ -351,6 +360,7 @@ export class MealsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('meals.delete')
   @Delete(':id/soft-delete')
   @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)

@@ -24,7 +24,10 @@ import { UpdateIngredientCategoryDto } from './dto/update-ingredient-category.dt
 import { IngredientCategory } from './entities/ingredient-category.entity';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
-import { AdminOnly } from '../../auth/decorators/roles.decorator';
+import {
+  AdminOnly,
+  RequirePermissions,
+} from '../../auth/decorators/roles.decorator';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { UseGuards } from '@nestjs/common';
 
@@ -39,6 +42,7 @@ export class IngredientCategoriesController {
   @AdminOnly()
   @Post()
   @ApiBearerAuth('JWT-auth')
+  @RequirePermissions('ingredientsCategories.create')
   @ApiOperation({ summary: 'Create a new ingredient category' })
   @ApiBody({ type: CreateIngredientCategoryDto })
   @ApiResponse({
@@ -59,6 +63,7 @@ export class IngredientCategoriesController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('ingredientsCategories.read')
   @Get()
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all ingredient categories' })
@@ -81,6 +86,7 @@ export class IngredientCategoriesController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('ingredientsCategories.read')
   @Get('soft-deleted')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all soft-deleted ingredient categories' })
@@ -95,6 +101,7 @@ export class IngredientCategoriesController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('ingredientsCategories.read')
   @Get(':id')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get a specific ingredient category by ID' })
@@ -118,6 +125,7 @@ export class IngredientCategoriesController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('ingredientsCategories.update')
   @Patch(':id')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update an ingredient category' })
@@ -160,6 +168,7 @@ export class IngredientCategoriesController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('ingredientsCategories.delete')
   @Delete(':id')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Remove an ingredient category (hard delete)' })
@@ -188,6 +197,7 @@ export class IngredientCategoriesController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('ingredientsCategories.delete')
   @Post(':id/restore')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Restore a soft-deleted ingredient category' })
@@ -201,7 +211,6 @@ export class IngredientCategoriesController {
     description: 'Ingredient category with the provided ID was not found.',
   })
   restore(@Param('id') id: string): Promise<IngredientCategory> {
-    // Validate that id is a valid number
     const categoryId = parseInt(id, 10);
     if (isNaN(categoryId)) {
       throw new BadRequestException(`Invalid ingredient category ID: ${id}`);

@@ -7,7 +7,11 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { AdminOnly, Roles } from '../auth/decorators/roles.decorator';
+import {
+  AdminOnly,
+  RequirePermissions,
+  Roles,
+} from '../auth/decorators/roles.decorator';
 import { DashboardService } from './dashboard.service';
 import { DashboardStatsDto } from './dto/dashboard-stats.dto';
 import { OrderAnalyticsDto } from './dto/order-analytics.dto';
@@ -34,6 +38,7 @@ export class DashboardController {
 
   @Get('stats')
   @AdminOnly()
+  @RequirePermissions('dashboard.read')
   @ApiOperation({
     summary: 'Get dashboard statistics',
     description:
@@ -50,6 +55,7 @@ export class DashboardController {
 
   @Get('orders-analytics')
   @Roles('admin')
+  @RequirePermissions('dashboard.read')
   @ApiOperation({
     summary: 'Get order analytics data',
     description:
@@ -66,6 +72,7 @@ export class DashboardController {
 
   @Get('hourly-revenue')
   @Roles('admin')
+  @RequirePermissions('dashboard.read')
   @ApiOperation({
     summary: 'Get hourly revenue data',
     description: 'Returns revenue data broken down by hour for the current day',
@@ -81,6 +88,7 @@ export class DashboardController {
 
   @Get('category-distribution')
   @Roles('admin')
+  @RequirePermissions('dashboard.read')
   @ApiOperation({
     summary: 'Get meal category distribution',
     description:
@@ -97,6 +105,7 @@ export class DashboardController {
 
   @Get('table-status')
   @Roles('admin')
+  @RequirePermissions('dashboard.read')
   @ApiOperation({
     summary: 'Get table status data',
     description: 'Returns the count of tables grouped by their current status',
@@ -112,6 +121,7 @@ export class DashboardController {
 
   @Get('top-meals')
   @Roles('admin')
+  @RequirePermissions('dashboard.read')
   @ApiOperation({
     summary: 'Get top selling meals',
     description:
@@ -128,6 +138,7 @@ export class DashboardController {
 
   @Get('recent-orders')
   @Roles('admin')
+  @RequirePermissions('dashboard.read')
   @ApiOperation({
     summary: 'Get recent orders',
     description: 'Returns the 5 most recent orders placed in the system',

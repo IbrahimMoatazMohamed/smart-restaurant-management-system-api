@@ -460,6 +460,29 @@ export class MealsService {
 
       this.logger.log(`Restoring soft-deleted meal with ID: ${id}`);
 
+      const deletedMeal = await this.mealsRepository.findOne({
+        where: { id },
+        withDeleted: true,
+        relations: ['category'],
+      });
+
+      if (!deletedMeal) {
+        throw new NotFoundException(`Meal with ID ${id} not found`);
+      }
+
+      if (!deletedMeal.deletedAt) {
+        throw new BadRequestException(`Meal with ID ${id} is not deleted`);
+      }
+
+      if (deletedMeal.category && deletedMeal.category.deletedAt) {
+        this.logger.warn(
+          `Cannot restore meal with ID ${id} because its category is deleted`,
+        );
+        throw new BadRequestException(
+          `Cannot restore meal because its category is deleted. Please restore the category first.`,
+        );
+      }
+
       await this.mealsRepository.restore(id);
 
       try {

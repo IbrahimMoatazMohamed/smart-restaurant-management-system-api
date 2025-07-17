@@ -31,7 +31,10 @@ import { Ingredient } from './entities/ingredient.entity';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { UpdateQuantityDto } from './dto/update-quantity.dto';
 import { IngredientResponseDto } from './dto/ingredient-response.dto';
-import { AdminOnly } from '../../auth/decorators/roles.decorator';
+import {
+  AdminOnly,
+  RequirePermissions,
+} from '../../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 
@@ -63,6 +66,7 @@ export class IngredientsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('ingredients.create')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiBearerAuth('JWT-auth')
@@ -98,6 +102,7 @@ export class IngredientsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('ingredients.read')
   @Get()
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
@@ -138,6 +143,7 @@ export class IngredientsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('ingredients.read')
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
@@ -169,6 +175,7 @@ export class IngredientsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('ingredients.update')
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
@@ -208,6 +215,7 @@ export class IngredientsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('ingredients.delete')
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiBearerAuth('JWT-auth')
@@ -236,6 +244,7 @@ export class IngredientsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('ingredients.delete')
   @Post(':id/restore')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
@@ -266,6 +275,7 @@ export class IngredientsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('ingredients.update')
   @Patch(':id/increase')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
@@ -311,6 +321,7 @@ export class IngredientsController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('ingredients.update')
   @Patch(':id/decrease')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')

@@ -6,10 +6,11 @@
   "meals": ["create", "read", "update", "delete"],
   "mealItems": ["create", "read", "update", "delete"],
   "items": ["create", "read", "update", "delete"],
-  "ingredientItems": ["create", "read", "update", "delete"],
+  "itemIngredients": ["create", "read", "update", "delete"],
   "menuCategories": ["create", "update", "delete"],
   "coupons": ["create", "read", "update", "delete"],
   "roles": ["create", "read", "update", "delete"],
   "ingredients": ["create", "read", "update", "delete"],
-  "ingredientsCategories": ["create", "read", "update", "delete"]
+  "ingredientsCategories": ["create", "read", "update", "delete"],
+  "dashboard": ["read"]
 }
