@@ -31,8 +31,11 @@ import { CustomLoggerService } from '../logger/logger.service';
 import { UserResponseDto } from './dto/user-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { AdminOnly } from '../auth/decorators/roles.decorator';
-import { MeOrAdmin } from '../auth/decorators/me-or-admin.decorator';
+import {
+  AdminOnly,
+  RequirePermissions,
+} from '../auth/decorators/roles.decorator';
+import { MeOrAdminOrAuthorized } from '../auth/decorators/me-or-admin.decorator';
 import { ImageUpload } from '../file-upload/decorators/image-upload.decorator';
 import { ImageUploadHelper } from '../file-upload/helpers/image-upload.helper';
 import { RolesService } from '../roles/roles.service';
@@ -69,6 +72,7 @@ export class UsersController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('users.create')
   @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new user' })
@@ -99,6 +103,7 @@ export class UsersController {
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('users.read')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all users (Admin only)' })
   @ApiResponse({
@@ -153,7 +158,7 @@ export class UsersController {
    * @returns User
    */
   @Get(':userId')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get a user by ID' })
   @ApiParam({ name: 'userId', description: 'User ID' })
@@ -168,7 +173,9 @@ export class UsersController {
   @ApiInternalServerErrorResponse({
     description: 'Failed to retrieve user.',
   })
-  async findOne(@MeOrAdmin() userId: number): Promise<UserResponseDto> {
+  async findOne(
+    @MeOrAdminOrAuthorized('users.read') userId: number,
+  ): Promise<UserResponseDto> {
     this.logger.log(`Retrieving user with ID: ${userId}`);
     return await this.usersService.findOne(userId);
   }
@@ -203,7 +210,7 @@ export class UsersController {
     description: 'Failed to update user.',
   })
   async update(
-    @MeOrAdmin() userId: number,
+    @MeOrAdminOrAuthorized('users.update') userId: number,
     @Body() updateUserDto: UpdateUserDto,
   ): Promise<UserResponseDto> {
     this.logger.log(`Updating user with ID: ${userId}`);
@@ -233,7 +240,9 @@ export class UsersController {
   @ApiInternalServerErrorResponse({
     description: 'Failed to delete user.',
   })
-  async remove(@MeOrAdmin() userId: number): Promise<void> {
+  async remove(
+    @MeOrAdminOrAuthorized('users.delete') userId: number,
+  ): Promise<void> {
     this.logger.log(`Deleting user with ID: ${userId}`);
     await this.usersService.remove(userId);
   }
@@ -275,7 +284,7 @@ export class UsersController {
     },
   })
   async uploadProfileImage(
-    @MeOrAdmin() userId: number,
+    @MeOrAdminOrAuthorized('users.update') userId: number,
     @UploadedFile() photo: Express.Multer.File,
   ) {
     this.logger.log(`Uploading profile image for user with ID: ${userId}`);
@@ -292,6 +301,7 @@ export class UsersController {
   @Post(':userId/roles/:roleId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('users.update')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Assign a role to a user' })
   @ApiParam({ name: 'userId', description: 'User ID' })

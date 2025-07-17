@@ -28,7 +28,10 @@ import { UpdateRoleDto } from './dto/update-role.dto';
 import { CustomLoggerService } from '../logger/logger.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { AdminOnly } from '../auth/decorators/roles.decorator';
+import {
+  AdminOnly,
+  RequirePermissions,
+} from '../auth/decorators/roles.decorator';
 import { Role } from './entities/role.entity';
 
 /**
@@ -60,6 +63,7 @@ export class RolesController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('roles.create')
   @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new role' })
@@ -90,6 +94,7 @@ export class RolesController {
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('roles.read')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all roles (Admin only)' })
   @ApiResponse({
@@ -116,6 +121,7 @@ export class RolesController {
   @Get('permissions')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('roles.read')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get available permissions (Admin only)' })
   @ApiResponse({
@@ -142,6 +148,7 @@ export class RolesController {
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('roles.read')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get a role by ID' })
   @ApiParam({ name: 'id', description: 'Role ID' })
@@ -172,6 +179,7 @@ export class RolesController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('roles.update')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update a role' })
   @ApiParam({ name: 'id', description: 'Role ID' })
@@ -207,6 +215,7 @@ export class RolesController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('roles.delete')
   @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a role' })

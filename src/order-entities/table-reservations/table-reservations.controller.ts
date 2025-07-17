@@ -27,7 +27,10 @@ import { TableReservationResponseDto } from './dto/table-reservation-response.dt
 import { ReservationStatus } from './entities/table-reservation.entity';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
-import { AdminOnly } from '../../auth/decorators/roles.decorator';
+import {
+  AdminOnly,
+  RequirePermissions,
+} from '../../auth/decorators/roles.decorator';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { MeOrAdmin } from '../../auth/decorators/me-or-admin.decorator';
 
@@ -56,6 +59,7 @@ export class TableReservationsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('tableReservations.read')
   @Get()
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all table reservations' })
@@ -84,6 +88,7 @@ export class TableReservationsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('tableReservations.read')
   @Get('table/:tableId')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get reservations for a specific table' })
@@ -123,6 +128,7 @@ export class TableReservationsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('tableReservations.read')
   @Get(':id')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get a specific table reservation' })
@@ -141,6 +147,7 @@ export class TableReservationsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('tableReservations.update')
   @Patch(':id')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update a table reservation' })
@@ -162,6 +169,7 @@ export class TableReservationsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('tableReservations.update')
   @Patch(':id/cancel')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Cancel a table reservation' })
@@ -180,6 +188,7 @@ export class TableReservationsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('tableReservations.update')
   @Patch(':id/confirm')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Confirm a table reservation' })
@@ -198,6 +207,7 @@ export class TableReservationsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('tableReservations.update')
   @Patch(':id/complete')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Mark a table reservation as completed' })
@@ -216,6 +226,7 @@ export class TableReservationsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('tableReservations.delete')
   @Delete(':id')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Delete a table reservation' })

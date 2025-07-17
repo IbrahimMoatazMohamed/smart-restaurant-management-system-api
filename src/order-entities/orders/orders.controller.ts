@@ -90,7 +90,7 @@ export class OrdersController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
-  @RequirePermissions('orders:read')
+  @RequirePermissions('orders.read')
   @Get()
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all orders' })
@@ -151,6 +151,7 @@ export class OrdersController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('orders.read')
   @Get(':id')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get an order by ID' })
@@ -181,6 +182,7 @@ export class OrdersController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('orders.update')
   @Patch(':id')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update an order' })
@@ -215,6 +217,7 @@ export class OrdersController {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
+  @RequirePermissions('orders.delete')
   @Delete(':id')
   @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)
