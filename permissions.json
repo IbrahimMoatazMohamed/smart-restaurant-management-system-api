@@ -1,0 +1,15 @@
+{
+  "orders": ["read", "update", "delete"],
+  "users": ["create", "read", "update", "delete"],
+  "tables": ["create", "read", "update", "delete"],
+  "tableReservations": ["read", "update", "delete"],
+  "meals": ["create", "read", "update", "delete"],
+  "mealItems": ["create", "read", "update", "delete"],
+  "items": ["create", "read", "update", "delete"],
+  "ingredientItems": ["create", "read", "update", "delete"],
+  "menuCategories": ["create", "update", "delete"],
+  "coupons": ["create", "read", "update", "delete"],
+  "roles": ["create", "read", "update", "delete"],
+  "ingredients": ["create", "read", "update", "delete"],
+  "ingredientsCategories": ["create", "read", "update", "delete"]
+}

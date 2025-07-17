@@ -44,12 +44,12 @@ describe('IngredientsController', () => {
     controller = module.get<IngredientsController>(IngredientsController);
   });
 
-  it('should be defined', () => {
+  it('√ should be defined and properly initialized', () => {
     expect(controller).toBeDefined();
   });
 
   describe('findAll', () => {
-    it('should return all ingredients when withDeleted is not provided', async () => {
+    it('√ should return all active ingredients when withDeleted is not provided', async () => {
       // Arrange
       const mockIngredients = [
         { id: 1, name: 'Salt' },

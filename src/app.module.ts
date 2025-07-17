@@ -18,6 +18,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { MealItemsModule } from './menu-entities/meal-items/meal-items.module';
 import { TableReservationsModule } from './order-entities/table-reservations/table-reservations.module';
+import { RolesModule } from './roles/roles.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { TableReservationsModule } from './order-entities/table-reservations/tab
     FileUploadModule,
     MealItemsModule,
     TableReservationsModule,
+    RolesModule,
   ],
   controllers: [],
   providers: [],
