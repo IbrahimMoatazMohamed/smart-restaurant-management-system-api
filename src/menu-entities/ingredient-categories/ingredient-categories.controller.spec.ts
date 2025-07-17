@@ -30,6 +30,8 @@ describe('IngredientCategoriesController', () => {
   };
 
   beforeEach(async () => {
+    // Reset all mocks before each test
+    jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       controllers: [IngredientCategoriesController],
       providers: [
@@ -114,13 +116,22 @@ describe('IngredientCategoriesController', () => {
     it('should throw BadRequestException when id is not a number', async () => {
       // Arrange
       const invalidId = 'invalid';
+      const findOneSpy = jest.spyOn(service, 'findOne');
 
       // Act & Assert
-      await expect(controller.findOne(invalidId)).rejects.toThrow(
-        BadRequestException,
-      );
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(service.findOne).not.toHaveBeenCalled();
+      try {
+        await controller.findOne(invalidId);
+        // If we reach here, the test should fail
+        fail('Expected BadRequestException to be thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        if (error instanceof BadRequestException) {
+          expect(error.message).toContain('Invalid ingredient category ID');
+        }
+      }
+
+      // Verify service method was not called
+      expect(findOneSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -141,13 +152,22 @@ describe('IngredientCategoriesController', () => {
     it('should throw BadRequestException when id is not a number', async () => {
       // Arrange
       const invalidId = 'invalid';
+      const removeSpy = jest.spyOn(service, 'remove');
 
       // Act & Assert
-      await expect(controller.remove(invalidId)).rejects.toThrow(
-        BadRequestException,
-      );
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(service.remove).not.toHaveBeenCalled();
+      try {
+        await controller.remove(invalidId);
+        // If we reach here, the test should fail
+        fail('Expected BadRequestException to be thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        if (error instanceof BadRequestException) {
+          expect(error.message).toContain('Invalid ingredient category ID');
+        }
+      }
+
+      // Verify service method was not called
+      expect(removeSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -168,13 +188,22 @@ describe('IngredientCategoriesController', () => {
     it('should throw BadRequestException when id is not a number', async () => {
       // Arrange
       const invalidId = 'invalid';
+      const restoreSpy = jest.spyOn(service, 'restore');
 
       // Act & Assert
-      await expect(controller.restore(invalidId)).rejects.toThrow(
-        BadRequestException,
-      );
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(service.restore).not.toHaveBeenCalled();
+      try {
+        await controller.restore(invalidId);
+        // If we reach here, the test should fail
+        fail('Expected BadRequestException to be thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        if (error instanceof BadRequestException) {
+          expect(error.message).toContain('Invalid ingredient category ID');
+        }
+      }
+
+      // Verify service method was not called
+      expect(restoreSpy).not.toHaveBeenCalled();
     });
   });
 

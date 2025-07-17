@@ -1,6 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MenuCategoriesController } from './menu-categories.controller';
 import { MenuCategoriesService } from './menu-categories.service';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { MenuCategory } from './entities/menu-category.entity';
+import { CustomLoggerService } from '../../logger/logger.service';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Reflector } from '@nestjs/core';
 
 describe('MenuCategoriesController', () => {
   let controller: MenuCategoriesController;
@@ -8,8 +14,48 @@ describe('MenuCategoriesController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [MenuCategoriesController],
-      providers: [MenuCategoriesService],
-    }).compile();
+      providers: [
+        MenuCategoriesService,
+        {
+          provide: getRepositoryToken(MenuCategory),
+          useValue: {
+            find: jest.fn().mockResolvedValue([]),
+            findOne: jest.fn().mockResolvedValue({}),
+            create: jest.fn().mockReturnValue({}),
+            save: jest.fn().mockResolvedValue({}),
+            update: jest.fn().mockResolvedValue({}),
+            delete: jest.fn().mockResolvedValue({}),
+            softDelete: jest.fn().mockResolvedValue({}),
+            restore: jest.fn().mockResolvedValue({}),
+            remove: jest.fn().mockResolvedValue({}),
+          },
+        },
+        {
+          provide: CustomLoggerService,
+          useValue: {
+            setContext: jest.fn(),
+            log: jest.fn(),
+            error: jest.fn(),
+            warn: jest.fn(),
+            debug: jest.fn(),
+            verbose: jest.fn(),
+            logError: jest.fn(),
+          },
+        },
+        {
+          provide: Reflector,
+          useValue: {
+            get: jest.fn(),
+            getAllAndOverride: jest.fn(),
+          },
+        },
+      ],
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: jest.fn().mockReturnValue(true) })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: jest.fn().mockReturnValue(true) })
+      .compile();
 
     controller = module.get<MenuCategoriesController>(MenuCategoriesController);
   });

@@ -5,6 +5,10 @@ import { CreateItemIngredientDto } from './dto/create-item-ingredient.dto';
 import { ItemIngredientResponseDto } from './dto/item-ingredients-response.dto';
 import { ItemIngredient } from './entities/item-ingredient.entity';
 import Measurement from '../ingredients/types/measurement.enum';
+import { Reflector } from '@nestjs/core';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { CustomLoggerService } from '../../logger/logger.service';
 
 describe('ItemIngredientsController', (): void => {
   let controller: ItemIngredientsController;
@@ -20,6 +24,23 @@ describe('ItemIngredientsController', (): void => {
     remove: jest.fn(),
   };
 
+  // Mock for CustomLoggerService
+  const mockCustomLoggerService = {
+    setContext: jest.fn().mockReturnThis(),
+    log: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+    verbose: jest.fn(),
+    logError: jest.fn(),
+  };
+
+  // Mock for JwtAuthGuard
+  const mockJwtAuthGuard = { canActivate: jest.fn().mockReturnValue(true) };
+
+  // Mock for RolesGuard
+  const mockRolesGuard = { canActivate: jest.fn().mockReturnValue(true) };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ItemIngredientsController],
@@ -27,6 +48,22 @@ describe('ItemIngredientsController', (): void => {
         {
           provide: ItemIngredientsService,
           useValue: mockItemIngredientsService,
+        },
+        {
+          provide: Reflector,
+          useValue: { getAllAndOverride: jest.fn().mockReturnValue(['admin']) },
+        },
+        {
+          provide: CustomLoggerService,
+          useValue: mockCustomLoggerService,
+        },
+        {
+          provide: JwtAuthGuard,
+          useValue: mockJwtAuthGuard,
+        },
+        {
+          provide: RolesGuard,
+          useValue: mockRolesGuard,
         },
       ],
     }).compile();

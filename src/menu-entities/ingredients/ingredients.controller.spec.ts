@@ -22,6 +22,17 @@ describe('IngredientsController', () => {
   };
 
   beforeEach(async () => {
+    // Reset all mocks before each test
+    jest.clearAllMocks();
+    Object.keys(mockIngredientsService).forEach((key) => {
+      mockIngredientsService[
+        key as keyof typeof mockIngredientsService
+      ].mockReset();
+    });
+    Object.keys(mockLoggerService).forEach((key) => {
+      mockLoggerService[key as keyof typeof mockLoggerService].mockReset();
+    });
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [IngredientsController],
       providers: [
@@ -64,6 +75,7 @@ describe('IngredientsController', () => {
       mockIngredientsService.findAllWithDeleted.mockResolvedValue(
         mockIngredients,
       );
+      mockIngredientsService.findAll.mockResolvedValue([]);
 
       // Act
       const result = await controller.findAll('true');

@@ -174,7 +174,6 @@ export class IngredientsService {
     try {
       this.logger.log(`Updating ingredient with ID: ${id}`);
 
-      // Check if ingredient exists
       const existingIngredient = await this.findOne(id);
       if (!existingIngredient) {
         throw new NotFoundException(`Ingredient with ID ${id} not found`);
@@ -273,7 +272,19 @@ export class IngredientsService {
     try {
       this.logger.log(`Restoring ingredient with ID: ${id}`);
 
+      const ingredient = await this.ingredientsRepository.findOne({
+        where: { id },
+        withDeleted: true,
+      });
+
+      if (!ingredient) {
+        this.logger.warn(`Ingredient with ID ${id} not found`);
+        throw new NotFoundException(`Ingredient with ID ${id} not found`);
+      }
+
       await this.ingredientsRepository.restore(id);
+
+      this.logger.log(`Ingredient with ID ${id} has been restored`);
     } catch (error) {
       return handleError(
         error,

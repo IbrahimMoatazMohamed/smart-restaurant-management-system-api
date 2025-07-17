@@ -73,7 +73,10 @@ export class IngredientCategoriesController {
     description: 'List of ingredient categories returned successfully.',
   })
   findAll(@Query('includeDeleted') includeDeleted?: string) {
-    return this.ingredientCategoriesService.findAll(includeDeleted === 'true');
+    if (includeDeleted === 'true') {
+      return this.ingredientCategoriesService.findAllSoftDeleted();
+    }
+    return this.ingredientCategoriesService.findAll();
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -104,7 +107,7 @@ export class IngredientCategoriesController {
     status: HttpStatus.NOT_FOUND,
     description: 'Ingredient category with the provided ID was not found.',
   })
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id') id: string): Promise<IngredientCategory> {
     // Validate that id is a valid number
     const categoryId = parseInt(id, 10);
     if (isNaN(categoryId)) {
@@ -143,7 +146,7 @@ export class IngredientCategoriesController {
   update(
     @Param('id') id: string,
     @Body() updateIngredientCategoryDto: UpdateIngredientCategoryDto,
-  ) {
+  ): Promise<IngredientCategory> {
     // Validate that id is a valid number
     const categoryId = parseInt(id, 10);
     if (isNaN(categoryId)) {
@@ -174,7 +177,7 @@ export class IngredientCategoriesController {
     description:
       'Cannot delete ingredient category that has associated ingredients.',
   })
-  remove(@Param('id') id: string) {
+  remove(@Param('id') id: string): Promise<void> {
     // Validate that id is a valid number
     const categoryId = parseInt(id, 10);
     if (isNaN(categoryId)) {
@@ -197,7 +200,7 @@ export class IngredientCategoriesController {
     status: HttpStatus.NOT_FOUND,
     description: 'Ingredient category with the provided ID was not found.',
   })
-  restore(@Param('id') id: string) {
+  restore(@Param('id') id: string): Promise<IngredientCategory> {
     // Validate that id is a valid number
     const categoryId = parseInt(id, 10);
     if (isNaN(categoryId)) {
