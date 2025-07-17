@@ -42,45 +42,28 @@ export class DashboardService {
         (table) => table.status === TableStatus.OCCUPIED,
       ).length;
 
-      // Get menu items count
-      const meals = await this.mealsService.findAll();
-      const menuItems = meals.length;
+      // No longer including menu items count
 
       return [
         {
           label: 'Active Orders',
           value: activeOrders,
-          change: 0,
-          trend: 'neutral',
-          color: 'bg-blue-100 text-blue-800',
+          color: 'bg-blue-50 text-blue-800 border-blue-500', // Ocean blue theme
         },
         {
           label: 'Completed Orders',
           value: completedOrders,
-          change: 0,
-          trend: 'up',
-          color: 'bg-green-100 text-green-800',
+          color: 'bg-emerald-50 text-emerald-800 border-emerald-500', // Emerald/turquoise theme
         },
         {
           label: 'Available Tables',
           value: availableTables,
-          change: 0,
-          trend: 'neutral',
-          color: 'bg-yellow-100 text-yellow-800',
+          color: 'bg-amber-50 text-amber-800 border-amber-500', // Golden yellow theme
         },
         {
           label: 'Occupied Tables',
           value: occupiedTables,
-          change: 0,
-          trend: 'down',
-          color: 'bg-red-100 text-red-800',
-        },
-        {
-          label: 'Menu Items',
-          value: menuItems,
-          change: 0,
-          trend: 'neutral',
-          color: 'bg-purple-100 text-purple-800',
+          color: 'bg-rose-50 text-rose-800 border-rose-500', // Coral red theme
         },
       ];
     } catch (error: unknown) {
@@ -99,7 +82,7 @@ export class DashboardService {
 
   /**
    * Get order analytics
-   * @returns Order analytics data
+   * @returns Order analytics data with stylish colors
    */
   async getOrderAnalytics(): Promise<any[]> {
     try {
@@ -115,17 +98,15 @@ export class DashboardService {
         ordersByStatus[order.status]++;
       });
 
-      // Convert to array format needed for frontend
       return Object.entries(ordersByStatus).map(([status, count]) => ({
         name: status,
         value: count,
       }));
     } catch (error: unknown) {
-      return handleError(error, [], 'Failed to get order analytics', () => {
-        this.logger.error(
-          `Error getting order analytics: ${(error as Error).message}`,
-        );
-      });
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Error getting order analytics: ${errorMessage}`);
+      return []; // Return empty array on error
     }
   }
 
@@ -173,8 +154,8 @@ export class DashboardService {
   }
 
   /**
-   * Get meal category distribution
-   * @returns Category distribution data
+   * Get meal category distribution with stylish colors
+   * @returns Category distribution data with colors
    */
   async getCategoryDistribution(): Promise<any[]> {
     try {
@@ -191,10 +172,25 @@ export class DashboardService {
         categoryMap[category]++;
       });
 
-      // Convert to array format needed for frontend
-      return Object.entries(categoryMap).map(([name, value]) => ({
+      // Define stylish colors for categories
+      const categoryColors = [
+        '#FF6B6B', // Coral red
+        '#4ECDC4', // Mint
+        '#45B7D1', // Ocean blue
+        '#F9C80E', // Golden yellow
+        '#7B5EA7', // Lavender purple
+        '#FF9F1C', // Amber orange
+        '#2EC4B6', // Turquoise
+        '#FF5A5F', // Salmon pink
+        '#5D5C61', // Slate gray
+        '#379683', // Forest green
+      ];
+
+      // Convert to array format needed for frontend with colors
+      return Object.entries(categoryMap).map(([name, value], index) => ({
         name,
         value,
+        fill: categoryColors[index % categoryColors.length],
       }));
     } catch (error: unknown) {
       return handleError(
@@ -211,29 +207,33 @@ export class DashboardService {
   }
 
   /**
-   * Get table status data
-   * @returns Table status data
+   * Get table status with stylish colors
+   * @returns Table status data with colors
    */
   async getTableStatus(): Promise<any[]> {
     try {
       const tables = await this.tablesService.findAll();
-      const tableStatusCounts: { [key: string]: number } = {};
+
+      // Group tables by status
+      const tablesByStatus: { [key: string]: number } = {};
       tables.forEach((table) => {
-        if (!tableStatusCounts[table.status]) {
-          tableStatusCounts[table.status] = 0;
+        if (!tablesByStatus[table.status]) {
+          tablesByStatus[table.status] = 0;
         }
-        tableStatusCounts[table.status]++;
+        tablesByStatus[table.status]++;
       });
-      return Object.entries(tableStatusCounts).map(([status, count]) => ({
+
+      // Convert to array format needed for frontend with colors
+      return Object.entries(tablesByStatus).map(([status, count]) => ({
         name: status,
         value: count,
       }));
     } catch (error: unknown) {
-      return handleError(error, [], 'Failed to get table status', () => {
-        this.logger.error(
-          `Error getting table status: ${(error as Error).message}`,
-        );
-      });
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Error getting table status: ${errorMessage}`);
+
+      return []; // Return empty array on error
     }
   }
 

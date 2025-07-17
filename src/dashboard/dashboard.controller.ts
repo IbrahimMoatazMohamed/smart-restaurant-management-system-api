@@ -7,7 +7,7 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { AdminOnly, Roles } from '../auth/decorators/roles.decorator';
 import { DashboardService } from './dashboard.service';
 import { DashboardStatsDto } from './dto/dashboard-stats.dto';
 import { OrderAnalyticsDto } from './dto/order-analytics.dto';
@@ -20,7 +20,7 @@ import { TopMealDto } from './dto/top-meal.dto';
 @ApiTags('Dashboard')
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@ApiBearerAuth('JWT')
+@ApiBearerAuth('JWT-auth')
 @ApiResponse({
   status: 401,
   description: 'Unauthorized - User is not logged in',
@@ -33,7 +33,7 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get('stats')
-  @Roles('admin')
+  @AdminOnly()
   @ApiOperation({
     summary: 'Get dashboard statistics',
     description:
