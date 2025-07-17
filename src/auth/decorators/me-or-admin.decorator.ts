@@ -15,7 +15,7 @@ export const MeOrAdmin = createParamDecorator(
     const user = request.user;
     const userId = parseInt(request.params.userId, 10);
 
-    if (user.role === 'admin' || Number(user.userId) === userId) {
+    if (user.role?.name === 'admin' || Number(user.userId) === userId) {
       return userId;
     }
 

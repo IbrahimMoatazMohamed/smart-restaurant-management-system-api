@@ -12,7 +12,7 @@ import { RequestWithUser } from '../interfaces/request-with-user.interface';
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(
-    private reflector: Reflector,
+    private readonly reflector: Reflector,
     private readonly logger: CustomLoggerService,
   ) {
     this.logger.setContext('RolesGuard');
@@ -26,7 +26,12 @@ export class RolesGuard implements CanActivate {
       context.getClass(),
     ]);
 
-    if (!requiredRoles) {
+    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(
+      'permissions',
+      [context.getHandler(), context.getClass()],
+    );
+
+    if (!requiredRoles && !requiredPermissions) {
       return true;
     }
 
@@ -38,15 +43,41 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('Access denied');
     }
 
-    const hasRole = requiredRoles.some((role) => user.role === role);
+    if (requiredRoles && requiredRoles.length > 0) {
+      const userRoleName = user.role?.name || '';
+      const userRoles = user.roles || [];
 
-    if (!hasRole) {
-      this.logger.warn(
-        `User ${user.userId} with role ${user.role} attempted to access admin-only resource`,
+      const hasRole = requiredRoles.some(
+        (role) => userRoleName === role || userRoles.includes(role),
       );
-      throw new ForbiddenException('Access denied: Admin role required');
+
+      if (hasRole) {
+        return true;
+      }
     }
 
-    return true;
+    if (requiredPermissions && requiredPermissions.length > 0) {
+      const userPermissions = user.permissions || [];
+
+      const hasPermission = requiredPermissions.some((permission) =>
+        userPermissions.includes(permission),
+      );
+
+      if (hasPermission) {
+        return true;
+      }
+    }
+
+    const requiredRolesList = requiredRoles ? requiredRoles.join(', ') : 'none';
+    const requiredPermissionsList = requiredPermissions
+      ? requiredPermissions.join(', ')
+      : 'none';
+
+    this.logger.warn(
+      `User ${user.userId} attempted to access resource requiring roles: ${requiredRolesList} or permissions: ${requiredPermissionsList}`,
+    );
+    throw new ForbiddenException(
+      `Access denied: User lacks required role or permission`,
+    );
   }
 }

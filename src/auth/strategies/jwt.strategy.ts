@@ -7,7 +7,13 @@ import { UsersService } from '../../users/users.service';
 interface JwtPayload {
   sub: number;
   email: string;
-  role: string;
+  roles?: string[];
+  role?: {
+    name: string;
+    id: number;
+    [key: string]: any;
+  };
+  permissions?: string[];
 }
 
 @Injectable()
@@ -28,6 +34,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
-    return { userId: payload.sub, email: payload.email, role: payload.role };
+    return {
+      userId: payload.sub,
+      email: payload.email,
+      roles: payload.roles || [],
+      permissions: payload.permissions || [],
+      role: payload.role,
+    };
   }
 }

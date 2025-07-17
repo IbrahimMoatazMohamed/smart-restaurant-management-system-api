@@ -5,10 +5,13 @@ import {
   UpdateDateColumn,
   CreateDateColumn,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import Gender from '../types/gender';
 import { Order } from '../../order-entities/orders/entities/order.entity';
+import { Role } from '../../roles/entities/role.entity';
 
 @Entity('users')
 export class Users {
@@ -28,13 +31,13 @@ export class Users {
   @ApiProperty({ description: 'The country of the user' })
   country: string;
 
-  // @Column('decimal', { precision: 10, scale: 2 })
-  // @ApiProperty({ description: 'The salary of the user' })
-  // salary: number;
+  @ManyToOne(() => Role, { eager: false })
+  @JoinColumn({ name: 'role_id' })
+  @ApiProperty({ description: 'The role of the user', type: () => Role })
+  role: Role;
 
-  @Column({ default: 'user' })
-  @ApiProperty({ description: 'The role of the user' })
-  role: string;
+  @Column({ name: 'role_id', nullable: true })
+  roleId: number;
 
   @Column({ select: false })
   password: string;

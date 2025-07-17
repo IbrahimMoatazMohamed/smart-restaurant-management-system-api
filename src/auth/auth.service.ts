@@ -13,12 +13,14 @@ import { LoginDto } from './dto/login.dto';
 import { AdminLoginDto } from './dto/admin-login.dto';
 import { comparePasswords } from '../utils/password.util';
 import { CreateUserDto } from '../users/dto/create-user.dto';
+import { Role } from '../roles/entities/role.entity';
 
 interface UserWithoutPassword {
   id: number;
   email: string;
   name: string;
-  role: string;
+  role: Role;
+  roleId: number;
   phone: string;
   gender: string;
   country: string;
@@ -78,25 +80,7 @@ export class AuthService {
         throw new UnauthorizedException('Invalid credentials');
       }
 
-      const payload = {
-        email: user.email,
-        sub: user.id,
-        role: user.role,
-      };
-
-      return {
-        access_token: this.jwtService.sign(payload),
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          phone: user.phone,
-          gender: user.gender,
-          country: user.country,
-          imageUrl: user.imageUrl,
-          role: user.role,
-        },
-      };
+      return this.generateToken(user);
     } catch (err) {
       return handleError(
         err,
@@ -113,8 +97,39 @@ export class AuthService {
   }
 
   async register(createUserDto: CreateUserDto) {
-    createUserDto.role = 'user';
-    return await this.usersService.create(createUserDto);
+    createUserDto.roleId = 0;
+    return await this.usersService
+      .create(createUserDto)
+      .then((user) => this.generateToken(user));
+  }
+
+  generateToken(user: UserWithoutPassword) {
+    const rolePermissions = user.role.permissions;
+
+    const permissions: string[] = Object.entries(rolePermissions).flatMap(
+      ([resource, actions]) =>
+        actions.map((action: string) => `${resource}:${action}`),
+    );
+
+    const payload = {
+      email: user.email,
+      sub: user.id,
+      role: user.role,
+      permissions,
+    };
+    return {
+      access_token: this.jwtService.sign(payload),
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        phone: user.phone,
+        gender: user.gender,
+        country: user.country,
+        imageUrl: user.imageUrl,
+        role: user.role,
+      },
+    };
   }
 
   async adminLogin(adminLoginDto: AdminLoginDto) {
@@ -128,31 +143,13 @@ export class AuthService {
         throw new UnauthorizedException('Invalid credentials');
       }
 
-      if (user.role !== 'admin') {
+      if (user.role?.name === 'user') {
         throw new ForbiddenException(
           'Access denied. Admin privileges required.',
         );
       }
 
-      const payload = {
-        email: user.email,
-        sub: user.id,
-        role: user.role,
-      };
-
-      return {
-        access_token: this.jwtService.sign(payload),
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          phone: user.phone,
-          gender: user.gender,
-          country: user.country,
-          imageUrl: user.imageUrl,
-          role: user.role,
-        },
-      };
+      return this.generateToken(user);
     } catch (err) {
       return handleError(
         err,

@@ -3,12 +3,13 @@ import {
   IsEmail,
   IsEnum,
   IsNotEmpty,
+  IsNumber,
+  IsOptional,
   IsPhoneNumber,
   IsString,
   MinLength,
 } from 'class-validator';
 import Gender from '../types/gender';
-import { Transform } from 'class-transformer';
 
 export class CreateUserDto {
   @ApiProperty({
@@ -35,11 +36,10 @@ export class CreateUserDto {
   @IsString()
   country: string;
 
-  @Transform(({ value }) => (value ?? 'User') as string)
-  @ApiProperty({ description: 'The role of the user', example: 'Manager' })
-  @IsNotEmpty()
-  @IsString()
-  role: string;
+  @ApiProperty({ description: 'The role ID of the user', example: 1 })
+  @IsOptional()
+  @IsNumber()
+  roleId?: number;
 
   @ApiProperty({
     description: 'The password of the user',

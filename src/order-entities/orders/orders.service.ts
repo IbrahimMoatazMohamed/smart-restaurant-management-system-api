@@ -327,8 +327,6 @@ export class OrdersService {
       }
 
       if (updateOrderDto.userId) {
-        const user = await this.validateUserExists(updateOrderDto.userId);
-        order.user = user;
         order.userId = updateOrderDto.userId;
       }
 

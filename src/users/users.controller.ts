@@ -118,6 +118,35 @@ export class UsersController {
   }
 
   /**
+   * Get a user with permissions by ID
+   *
+   * @param id User ID
+   * @returns User with permissions
+   */
+  @Get(':userId/permissions')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get a user with permissions by ID' })
+  @ApiParam({ name: 'userId', description: 'User ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'User found.',
+    type: UserResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'User not found.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to retrieve user.',
+  })
+  async findOneWithPermissions(
+    @Param('userId') userId: number,
+  ): Promise<UserResponseDto> {
+    this.logger.log(`Retrieving user with ID: ${userId}`);
+    return await this.usersService.findOneWithPermissions(userId);
+  }
+
+  /**
    * Get a user by ID
    *
    * @param id User ID

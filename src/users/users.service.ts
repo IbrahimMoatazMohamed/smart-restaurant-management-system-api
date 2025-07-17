@@ -13,6 +13,7 @@ import { CustomLoggerService } from '../logger/logger.service';
 import { handleError } from '../utils/error-handler.util';
 import { UserResponseDto } from './dto/user-response.dto';
 import { hashPassword } from '../utils/password.util';
+import { plainToInstance } from 'class-transformer';
 
 /**
  * Users Service
@@ -96,7 +97,8 @@ export class UsersService {
         ...createUserDto,
         password: hashedPassword,
       });
-      return await this.usersRepository.save(user);
+      const savedUser = await this.usersRepository.save(user);
+      return plainToInstance(UserResponseDto, savedUser);
     } catch (err) {
       return handleError(
         err,
@@ -118,7 +120,10 @@ export class UsersService {
    */
   async findAll(): Promise<UserResponseDto[]> {
     try {
-      return await this.usersRepository.find();
+      const users = await this.usersRepository.find({
+        relations: ['role'],
+      });
+      return plainToInstance(UserResponseDto, users);
     } catch (err) {
       return handleError(err, [], 'Failed to retrieve users', () => {
         this.logger.logError(err, 'UsersService.findAll');
@@ -134,7 +139,38 @@ export class UsersService {
    */
   async findOne(id: number) {
     try {
-      const user = await this.usersRepository.findOne({ where: { id } });
+      const user = await this.usersRepository.findOne({
+        where: { id },
+        relations: ['role'],
+      });
+      if (!user) {
+        throw new NotFoundException(`User with ID ${id} not found`);
+      }
+      return plainToInstance(UserResponseDto, user);
+    } catch (err) {
+      return handleError(
+        err,
+        [NotFoundException],
+        `Failed to retrieve user with ID ${id}`,
+        () => {
+          this.logger.logError(err, 'UsersService.findOne', { userId: id });
+        },
+      );
+    }
+  }
+
+  /**
+   * Find a user with permissions
+   *
+   * @param id User ID
+   * @returns User
+   */
+  async findOneWithPermissions(id: number) {
+    try {
+      const user = await this.usersRepository.findOne({
+        where: { id },
+        relations: ['role'],
+      });
       if (!user) {
         throw new NotFoundException(`User with ID ${id} not found`);
       }
@@ -145,7 +181,9 @@ export class UsersService {
         [NotFoundException],
         `Failed to retrieve user with ID ${id}`,
         () => {
-          this.logger.logError(err, 'UsersService.findOne', { userId: id });
+          this.logger.logError(err, 'UsersService.findOneWithPermissions', {
+            userId: id,
+          });
         },
       );
     }
@@ -161,17 +199,18 @@ export class UsersService {
     try {
       const user = await this.usersRepository.findOne({
         where: { email: email.toLowerCase() },
-        select: [
-          'id',
-          'email',
-          'name',
-          'role',
-          'password',
-          'phone',
-          'gender',
-          'imageUrl',
-          'country',
-        ],
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          roleId: true,
+          password: true,
+          phone: true,
+          gender: true,
+          imageUrl: true,
+          country: true,
+        },
+        relations: ['role'],
       });
       if (!user) {
         throw new NotFoundException(`User with email ${email} not found`);
@@ -206,9 +245,15 @@ export class UsersService {
         await this.checkIfPhoneExists(updateUserDto.phone, id);
       }
 
-      const user = await this.findOne(id);
-      Object.assign(user, updateUserDto);
-      return await this.usersRepository.save(user);
+      // Get the actual entity instead of the DTO
+      const userEntity = await this.usersRepository.findOne({ where: { id } });
+      if (!userEntity) {
+        throw new NotFoundException(`User with ID ${id} not found`);
+      }
+
+      Object.assign(userEntity, updateUserDto);
+      const savedUser = await this.usersRepository.save(userEntity);
+      return plainToInstance(UserResponseDto, savedUser);
     } catch (err) {
       return handleError(
         err,
@@ -231,7 +276,10 @@ export class UsersService {
    */
   async remove(id: number): Promise<void> {
     try {
-      const user = await this.findOne(id);
+      const user = await this.usersRepository.findOne({ where: { id } });
+      if (!user) {
+        throw new NotFoundException(`User with ID ${id} not found`);
+      }
       await this.usersRepository.remove(user);
     } catch (err) {
       return handleError(
@@ -257,10 +305,14 @@ export class UsersService {
     imageUrl: string,
   ): Promise<{ imageUrl: string }> {
     try {
-      const user = await this.findOne(id);
+      // Get the actual entity instead of the DTO
+      const userEntity = await this.usersRepository.findOne({ where: { id } });
+      if (!userEntity) {
+        throw new NotFoundException(`User with ID ${id} not found`);
+      }
 
-      user.imageUrl = imageUrl;
-      await this.usersRepository.save(user);
+      userEntity.imageUrl = imageUrl;
+      await this.usersRepository.save(userEntity);
 
       return { imageUrl };
     } catch (err) {

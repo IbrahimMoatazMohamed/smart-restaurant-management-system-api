@@ -368,7 +368,7 @@ export class RolesService {
       }
 
       // Update the user's role with the role name
-      user.role = role.name;
+      user.roleId = role.id;
       await userRepository.save(user);
 
       this.logger.log(

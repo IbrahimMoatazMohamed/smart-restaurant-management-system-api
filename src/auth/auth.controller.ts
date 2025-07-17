@@ -52,7 +52,7 @@ export class AuthController {
 
     const user = await this.authService.login(loginDto);
 
-    if (user.user.role !== 'user') {
+    if (user.user.role.name !== 'user') {
       throw new ForbiddenException('Access denied: User role required');
     }
 
@@ -90,7 +90,7 @@ export class AuthController {
     this.logger.log(`Creating new user with email: ${createUserDto.email}`);
 
     const user = new CreateUserDto();
-    user.role = 'user';
+    user.roleId = 0;
     user.name = createUserDto.name;
     user.email = createUserDto.email;
     user.country = createUserDto.country;

@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Exclude, Expose } from 'class-transformer';
+import { Exclude, Expose, Type } from 'class-transformer';
 import Gender from '../types/gender';
+import { RoleResponseDto } from 'src/roles/dto/role-response.dto';
 
 @Exclude()
 export class UserResponseDto {
@@ -21,8 +22,16 @@ export class UserResponseDto {
   country: string;
 
   @Expose()
-  @ApiProperty({ description: 'The role of the user' })
-  role: string;
+  @Type(() => RoleResponseDto)
+  @ApiProperty({
+    description: 'The role of the user',
+    type: () => RoleResponseDto,
+  })
+  role: RoleResponseDto;
+
+  @Expose()
+  @ApiProperty({ description: 'The role ID of the user' })
+  roleId: number;
 
   @Expose()
   @ApiProperty({ description: 'The phone number of the user' })
@@ -34,6 +43,13 @@ export class UserResponseDto {
     enum: Gender,
   })
   gender: string;
+
+  @Expose()
+  @ApiProperty({
+    description: 'The profile image URL of the user',
+    required: false,
+  })
+  imageUrl?: string;
 
   @Expose()
   @ApiProperty({ description: 'The creation date of the user record' })
