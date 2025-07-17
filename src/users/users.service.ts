@@ -203,13 +203,14 @@ export class UsersService {
           'id',
           'email',
           'name',
-          'role',
+          'roleId',
           'password',
           'phone',
           'gender',
           'imageUrl',
           'country',
         ],
+        relations: ['role'],
       });
       if (!user) {
         throw new NotFoundException(`User with email ${email} not found`);

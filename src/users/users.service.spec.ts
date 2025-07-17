@@ -269,13 +269,14 @@ describe('UsersService', () => {
           'id',
           'email',
           'name',
-          'role',
+          'roleId',
           'password',
           'phone',
           'gender',
           'imageUrl',
           'country',
         ],
+        relations: ['role'],
       });
     });
 
@@ -286,7 +287,8 @@ describe('UsersService', () => {
 
       expect(mockRepository.findOne).toHaveBeenCalledWith({
         where: { email: 'test@example.com' },
-        select: expect.arrayContaining(['id', 'email', 'password']),
+        select: expect.arrayContaining(['id', 'email', 'roleId', 'password']),
+        relations: ['role'],
       });
     });
 
