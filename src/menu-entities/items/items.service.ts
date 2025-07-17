@@ -13,8 +13,8 @@ import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { MenuCategoriesService } from '../menu-categories/menu-categories.service';
-import { ItemIngredientsService } from 'src/menu-entities/item-ingredients/item-ingredients.service';
-import { IngredientsService } from 'src/menu-entities/ingredients/ingredients.service';
+import { ItemIngredientsService } from '../item-ingredients/item-ingredients.service';
+import { IngredientsService } from '../ingredients/ingredients.service';
 import { handleDuplicateEntryError } from '../../utils/duplicate-entry-handler.util';
 import { handleError } from '../../utils/error-handler.util';
 import { validateEntityExists } from '../../utils/entity-validation.util';
@@ -112,9 +112,6 @@ export class ItemsService {
     try {
       const items = await this.itemsRepository.find({
         withDeleted: includeDeleted,
-        where: {
-          isActive: !includeDeleted,
-        },
         relations: ['category'],
       });
       this.logger.log(
@@ -259,28 +256,6 @@ export class ItemsService {
   }
 
   /**
-   * Remove an item
-   * @param id Item ID
-   * @returns Void
-   */
-  async remove(id: number): Promise<void> {
-    try {
-      const item = await this.findOne(id);
-
-      await this.itemsRepository.delete(item);
-
-      this.logger.log(`Item with ID ${id} soft deleted`);
-    } catch (error) {
-      return handleError(
-        error,
-        [NotFoundException],
-        `Failed to soft delete item with ID ${id}`,
-        () => this.logger.logError(error, 'ItemsService.remove', { id }),
-      );
-    }
-  }
-
-  /**
    * Find items by status
    * @param status Item status
    * @returns Array of items with the specified status
@@ -337,7 +312,7 @@ export class ItemsService {
 
       const item = await this.findOne(id);
 
-      item.isActive = true;
+      // Item is automatically active when restored
       await this.itemsRepository.save(item);
       this.logger.log(`Item with ID ${id} restored`);
 
@@ -381,27 +356,30 @@ export class ItemsService {
   }
 
   /**
-   * Find items by active status
-   * @param isActive Active status to filter by
-   * @returns Array of items with the specified active status
+   * Find active or deleted items
+   * @param deleted Whether to find deleted items
+   * @returns Array of active or deleted items
    */
-  async findByActiveStatus(isActive: boolean): Promise<Item[]> {
+  async findByDeletedStatus(deleted: boolean): Promise<Item[]> {
     try {
       const items = await this.itemsRepository.find({
-        where: { isActive },
+        withDeleted: true,
+        where: deleted ? { deletedAt: Not(IsNull()) } : { deletedAt: IsNull() },
         relations: ['category'],
       });
 
-      this.logger.log(`Found ${items.length} items with isActive=${isActive}`);
+      this.logger.log(
+        `Found ${items.length} ${deleted ? 'deleted' : 'active'} items`,
+      );
       return items;
     } catch (error) {
       return handleError(
         error,
         [],
-        `Failed to find items with isActive=${isActive}`,
+        `Failed to find ${deleted ? 'deleted' : 'active'} items`,
         () => {
-          this.logger.logError(error, 'ItemsService.findByActiveStatus', {
-            isActive,
+          this.logger.logError(error, 'ItemsService.findByDeletedStatus', {
+            deleted,
           });
         },
       );
@@ -414,7 +392,7 @@ export class ItemsService {
    * @param id Item ID
    * @returns The soft-deleted item
    */
-  async softDelete(id: number): Promise<Item | null> {
+  async remove(id: number): Promise<Item | null> {
     try {
       // Validate that id is a valid number
       if (!id || isNaN(id)) {
@@ -422,11 +400,10 @@ export class ItemsService {
         throw new BadRequestException(`Invalid item ID: ${id}`);
       }
 
-      const item = await this.findOne(id);
+      // Verify item exists before soft deleting
+      await this.findOne(id);
 
-      item.isActive = false;
-      await this.itemsRepository.save(item);
-
+      // Soft delete the item
       await this.itemsRepository.softDelete(id);
 
       this.logger.log(`Item with ID ${id} soft deleted`);
@@ -450,35 +427,6 @@ export class ItemsService {
         `Failed to soft delete item with ID ${id}`,
         () => {
           this.logger.logError(error, 'ItemsService.softDelete', { id });
-        },
-      );
-    }
-  }
-
-  /**
-   * Permanently delete an item (hard delete)
-   *
-   * @param id Item ID
-   */
-  async hardDelete(id: number): Promise<void> {
-    try {
-      const item = await this.itemsRepository.findOne({
-        where: { id },
-        withDeleted: true,
-      });
-
-      if (!item) {
-        throw new NotFoundException(`Item with ID ${id} not found`);
-      }
-
-      await this.itemsRepository.delete(id);
-    } catch (error) {
-      handleError(
-        error,
-        [NotFoundException],
-        `Failed to permanently delete item with ID ${id}`,
-        () => {
-          this.logger.logError(error, 'ItemsService.hardDelete', { id });
         },
       );
     }

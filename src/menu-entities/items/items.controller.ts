@@ -40,9 +40,9 @@ import { UpdateItemDto } from './dto/update-item.dto';
 import { ItemStatus } from './entities/item.entity';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { ItemResponseDto } from './dto/item-response.dto';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { AdminOnly } from 'src/auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { AdminOnly } from '../../auth/decorators/roles.decorator';
 
 /**
  * Items Controller
@@ -190,31 +190,32 @@ export class ItemsController {
   }
 
   /**
-   * Find items by active status
+   * Find items by deleted status
    *
-   * @param isActive Active status to filter by
+   * @param deleted Whether to find deleted items
+   * @returns List of active or deleted items
    */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @AdminOnly()
-  @Get('by-status/:isActive')
-  @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Find items by active status' })
-  @ApiParam({ name: 'isActive', description: 'Active status (true/false)' })
+  @Get('deleted/:deleted')
+  @ApiOperation({ summary: 'Get items by deleted status' })
+  @ApiParam({
+    name: 'deleted',
+    description: 'Deleted status to filter by (true/false)',
+    type: Boolean,
+  })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'List of items with specified status.',
+    description: 'Returns items with the specified deleted status.',
     type: [ItemResponseDto],
   })
   @ApiInternalServerErrorResponse({
-    description: 'Failed to retrieve items by status.',
+    description: 'Failed to retrieve items.',
   })
-  async findByActiveStatus(
-    @Param('isActive', new ParseBoolPipe()) isActive: boolean,
+  async findByDeletedStatus(
+    @Param('deleted', new ParseBoolPipe()) deleted: boolean,
   ): Promise<ItemResponseDto[]> {
-    this.logger.log(`Finding items with isActive=${isActive}`);
+    this.logger.log(`Getting items with deleted=${deleted}`);
 
-    return await this.itemsService.findByActiveStatus(isActive);
+    return await this.itemsService.findByDeletedStatus(deleted);
   }
 
   /**
@@ -309,35 +310,6 @@ export class ItemsController {
   }
 
   /**
-   * Remove an item
-   *
-   * @param id Item ID
-   * @returns Void
-   */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @AdminOnly()
-  @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Soft delete an item' })
-  @ApiParam({ name: 'id', description: 'Item ID' })
-  @ApiResponse({
-    status: HttpStatus.NO_CONTENT,
-    description: 'The item has been successfully soft-deleted.',
-  })
-  @ApiNotFoundResponse({
-    description: 'Item not found.',
-  })
-  @ApiInternalServerErrorResponse({
-    description: 'Failed to soft delete item.',
-  })
-  async remove(@Param('id') id: string): Promise<void> {
-    this.logger.log(`Soft deleting item with ID: ${id}`);
-
-    await this.itemsService.remove(+id);
-  }
-
-  /**
    * Restore a soft-deleted item
    *
    * @param id Item ID
@@ -397,6 +369,6 @@ export class ItemsController {
   async softDelete(@Param('id', ParseIntPipe) id: number): Promise<void> {
     this.logger.log(`Soft deleting item with ID: ${id}`);
 
-    await this.itemsService.softDelete(id);
+    await this.itemsService.remove(id);
   }
 }

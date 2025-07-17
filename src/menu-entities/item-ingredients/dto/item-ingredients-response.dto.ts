@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Exclude, Expose } from 'class-transformer';
-import Measurement from 'src/menu-entities/ingredients/types/measurement.enum';
+import Measurement from '../../ingredients/types/measurement.enum';
 
 @Exclude()
 export class ItemIngredientResponseDto {

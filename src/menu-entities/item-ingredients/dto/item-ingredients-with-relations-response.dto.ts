@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Exclude, Expose } from 'class-transformer';
-import { Item } from 'src/menu-entities/items/entities/item.entity';
-import { Ingredient } from 'src/menu-entities/ingredients/entities/ingredient.entity';
+import { Item } from '../../items/entities/item.entity';
+import { Ingredient } from '../../ingredients/entities/ingredient.entity';
 import { ItemIngredientResponseDto } from './item-ingredients-response.dto';
 
 @Exclude()

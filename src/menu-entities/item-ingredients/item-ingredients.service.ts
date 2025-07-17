@@ -17,7 +17,7 @@ import { ItemIngredientResponseDto } from './dto/item-ingredients-response.dto';
 import { ItemsService } from '../items/items.service';
 import { IngredientsService } from '../ingredients/ingredients.service';
 import { validateEntityExists } from '../../utils/entity-validation.util';
-import { handleError } from 'src/utils/error-handler.util';
+import { handleError } from '../../utils/error-handler.util';
 import { handleDuplicateEntryError } from '../../utils/duplicate-entry-handler.util';
 
 @Injectable()

@@ -12,7 +12,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
-import { Item } from 'src/menu-entities/items/entities/item.entity';
+import { Item } from '../../items/entities/item.entity';
 import { MenuCategory } from '../../menu-categories/entities/menu-category.entity';
 import { MealItem } from './meal-item.entity';
 
@@ -57,13 +57,6 @@ export class Meal {
     example: MealStatus.AVAILABLE,
   })
   status: MealStatus;
-
-  @Column({ default: true })
-  @ApiProperty({
-    description: 'Whether the meal is active',
-    example: true,
-  })
-  isActive: boolean;
 
   @ManyToOne(() => MenuCategory, (category) => category.meals, {})
   @JoinColumn({ name: 'category_id' })

@@ -31,9 +31,9 @@ import { Ingredient } from './entities/ingredient.entity';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { UpdateQuantityDto } from './dto/update-quantity.dto';
 import { IngredientResponseDto } from './dto/ingredient-response.dto';
-import { AdminOnly } from 'src/auth/decorators/roles.decorator';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { AdminOnly } from '../../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
 
 /**
  * Ingredients Controller

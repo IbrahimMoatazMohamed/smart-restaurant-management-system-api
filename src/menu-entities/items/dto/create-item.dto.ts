@@ -11,7 +11,7 @@ import {
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ItemStatus } from '../entities/item.entity';
-import { CreateItemIngredientDto } from 'src/menu-entities/item-ingredients/dto/create-item-ingredient.dto';
+import { CreateItemIngredientDto } from '../../item-ingredients/dto/create-item-ingredient.dto';
 import { BadRequestException } from '@nestjs/common';
 
 export class CreateItemDto {

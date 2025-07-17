@@ -20,9 +20,9 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { AdminLoginDto } from './dto/admin-login.dto';
 import { CustomLoggerService } from '../logger/logger.service';
-import { UserResponseDto } from 'src/users/dto/user-response.dto';
+import { UserResponseDto } from '../users/dto/user-response.dto';
 import { UserRegistrationDto } from './dto/user-registration';
-import { CreateUserDto } from 'src/users/dto/create-user.dto';
+import { CreateUserDto } from '../users/dto/create-user.dto';
 
 @ApiTags('auth')
 @Controller('auth')

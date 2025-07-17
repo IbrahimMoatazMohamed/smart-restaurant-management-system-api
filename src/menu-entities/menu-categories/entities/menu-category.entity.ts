@@ -8,8 +8,8 @@ import {
   OneToMany,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
-import { Item } from 'src/menu-entities/items/entities/item.entity';
-import { Meal } from 'src/menu-entities/meals/entities/meal.entity';
+import { Item } from '../../items/entities/item.entity';
+import { Meal } from '../../meals/entities/meal.entity';
 
 @Entity('menu_categories')
 export class MenuCategory {

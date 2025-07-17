@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum, IsNumber, Min } from 'class-validator';
-import Measurement from 'src/menu-entities/ingredients/types/measurement.enum';
+import Measurement from '../../ingredients/types/measurement.enum';
 
 export class CreateItemIngredientDto {
   @ApiProperty({ description: 'The ID of the ingredient' })

@@ -25,11 +25,11 @@ import { CreateTableReservationDto } from './dto/create-table-reservation.dto';
 import { UpdateTableReservationDto } from './dto/update-table-reservation.dto';
 import { TableReservationResponseDto } from './dto/table-reservation-response.dto';
 import { ReservationStatus } from './entities/table-reservation.entity';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { AdminOnly } from 'src/auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { AdminOnly } from '../../auth/decorators/roles.decorator';
 import { ApiBearerAuth } from '@nestjs/swagger';
-import { MeOrAdmin } from 'src/auth/decorators/me-or-admin.decorator';
+import { MeOrAdmin } from '../../auth/decorators/me-or-admin.decorator';
 
 @ApiTags('table-reservations')
 @Controller('table-reservations')

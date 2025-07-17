@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   Injectable,
   UnauthorizedException,
@@ -11,7 +12,7 @@ import { handleError } from '../utils/error-handler.util';
 import { LoginDto } from './dto/login.dto';
 import { AdminLoginDto } from './dto/admin-login.dto';
 import { comparePasswords } from '../utils/password.util';
-import { CreateUserDto } from 'src/users/dto/create-user.dto';
+import { CreateUserDto } from '../users/dto/create-user.dto';
 
 interface UserWithoutPassword {
   id: number;
@@ -57,7 +58,7 @@ export class AuthService {
       if (err instanceof NotFoundException) {
         throw new UnauthorizedException('Invalid credentials');
       }
-      
+
       return handleError(
         err,
         [UnauthorizedException],

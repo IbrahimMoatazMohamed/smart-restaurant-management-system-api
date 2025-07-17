@@ -29,9 +29,9 @@ import { CouponResponseDto } from './dto/coupon-response.dto';
 import { CouponWithRelationsResponseDto } from './dto/coupon-with-relations-response.dto';
 import { isBefore } from 'date-fns';
 import { CouponValidationResponseDto } from './dto/coupon-validation-response.dto';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { AdminOnly } from 'src/auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { AdminOnly } from '../../auth/decorators/roles.decorator';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { UseGuards } from '@nestjs/common';
 

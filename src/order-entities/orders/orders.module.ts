@@ -4,11 +4,11 @@ import { OrdersController } from './orders.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Order } from './entities/order.entity';
 import { OrderMealItem } from './entities/order-meal-item.entity';
-import { UsersModule } from 'src/users/users.module';
-import { MealsModule } from 'src/menu-entities/meals/meals.module';
-import { ItemsModule } from 'src/menu-entities/items/items.module';
-import { CouponsModule } from 'src/order-entities/coupons/coupons.module';
-import { TablesModule } from 'src/order-entities/tables/tables.module';
+import { UsersModule } from '../../users/users.module';
+import { MealsModule } from '../../menu-entities/meals/meals.module';
+import { ItemsModule } from '../../menu-entities/items/items.module';
+import { CouponsModule } from '../../order-entities/coupons/coupons.module';
+import { TablesModule } from '../../order-entities/tables/tables.module';
 
 @Module({
   imports: [

@@ -8,8 +8,8 @@ import {
   DeleteDateColumn,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
-import { Ingredient } from 'src/menu-entities/ingredients/entities/ingredient.entity';
-import { IsString, IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
+import { Ingredient } from '../../ingredients/entities/ingredient.entity';
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
 
 @Entity('ingredient_categories')
 export class IngredientCategory {

@@ -7,7 +7,7 @@ import {
   IsString,
   MinLength,
 } from 'class-validator';
-import Gender from 'src/users/types/gender';
+import Gender from '../../users/types/gender';
 
 export class UserRegistrationDto {
   @ApiProperty({

@@ -13,7 +13,7 @@ import {
 import { ApiProperty } from '@nestjs/swagger';
 import { Meal } from '../../meals/entities/meal.entity';
 import { MenuCategory } from '../../menu-categories/entities/menu-category.entity';
-import { ItemIngredient } from 'src/menu-entities/item-ingredients/entities/item-ingredient.entity';
+import { ItemIngredient } from '../../item-ingredients/entities/item-ingredient.entity';
 
 // Define the ItemStatus enum
 export enum ItemStatus {
@@ -101,9 +101,6 @@ export class Item {
   updatedAt: Date;
 
   @DeleteDateColumn({ name: 'deleted_at', nullable: true })
+  @ApiProperty({ description: 'When the item was soft deleted' })
   deletedAt: Date;
-
-  @Column({ name: 'is_active', default: true })
-  @ApiProperty({ description: 'Whether the item is active or not' })
-  isActive: boolean;
 }

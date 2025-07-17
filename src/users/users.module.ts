@@ -3,7 +3,7 @@ import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Users } from './entities/users.entity';
-import { FileUploadModule } from 'src/file-upload/file-upload.module';
+import { FileUploadModule } from '../file-upload/file-upload.module';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Users]), FileUploadModule],

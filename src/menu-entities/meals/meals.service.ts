@@ -11,8 +11,8 @@ import { Repository, Not, IsNull } from 'typeorm';
 import { CreateMealDto } from './dto/create-meal.dto';
 import { UpdateMealDto } from './dto/update-meal.dto';
 import { Meal } from './entities/meal.entity';
-import { ItemsService } from 'src/menu-entities/items/items.service';
-import { MenuCategoriesService } from 'src/menu-entities/menu-categories/menu-categories.service';
+import { ItemsService } from '../items/items.service';
+import { MenuCategoriesService } from '../menu-categories/menu-categories.service';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { handleDuplicateEntryError } from '../../utils/duplicate-entry-handler.util';
 import { handleError } from '../../utils/error-handler.util';
@@ -223,6 +223,43 @@ export class MealsService {
   }
 
   /**
+   * Find one meal by ID with its items and meal items
+   *
+   * @param id Meal ID
+   * @returns The found meal with its items and meal items
+   */
+  async findOneWithItems(id: number) {
+    try {
+      const meal = await this.findOne(id);
+
+      // Get meal items with their quantities
+      const mealItems = await this.mealItemsService.findByMealId(id);
+      meal.mealItems = mealItems;
+
+      // Get the related items
+      if (mealItems && mealItems.length > 0) {
+        const itemIds = mealItems.map((item) => item.itemId);
+        const items = await this.itemsService.findAll();
+        const filteredItems = items.filter((item) => itemIds.includes(item.id));
+        meal.items = filteredItems;
+      } else {
+        meal.items = [];
+      }
+
+      return meal;
+    } catch (err) {
+      return handleError(
+        err,
+        [NotFoundException],
+        `Failed to retrieve meal with items for ID ${id}`,
+        () => {
+          this.logger.logError(err, 'MealsService.findOneWithItems', { id });
+        },
+      );
+    }
+  }
+
+  /**
    * Update a meal
    *
    * @param id Meal ID
@@ -303,6 +340,29 @@ export class MealsService {
             quantity: mealItem.quantity,
           }));
 
+          // Create a set of all item IDs in the updated meal items for efficient lookup
+          const updatedItemIds = new Set(
+            mealItemEntities.map((item) => item.itemId),
+          );
+
+          // Delete items that exist in the database but are not in the updated list
+          for (const [itemId] of existingMealItemsMap) {
+            if (!updatedItemIds.has(itemId)) {
+              try {
+                await this.mealItemsService.remove(id, itemId);
+                this.logger.debug(
+                  `Deleted meal item for meal ID ${id}, item ID ${itemId}`,
+                );
+              } catch (error) {
+                this.logger.error(
+                  `Failed to delete meal item during update: meal ID ${id}, item ID ${itemId}`,
+                  error instanceof Error ? error.message : String(error),
+                );
+              }
+            }
+          }
+
+          // Process the updated and new meal items
           for (const mealItem of mealItemEntities) {
             try {
               if (existingMealItemsMap.has(mealItem.itemId)) {
@@ -400,25 +460,7 @@ export class MealsService {
 
       this.logger.log(`Restoring soft-deleted meal with ID: ${id}`);
 
-      const deletedMeal = await this.mealsRepository.findOne({
-        where: { id },
-        withDeleted: true,
-      });
-
-      if (!deletedMeal) {
-        throw new NotFoundException(`Meal with ID ${id} not found`);
-      }
-
-      if (!deletedMeal.deletedAt) {
-        throw new BadRequestException(`Meal with ID ${id} is not deleted`);
-      }
-
       await this.mealsRepository.restore(id);
-
-      const meal = await this.findOne(id);
-
-      meal.isActive = true;
-      await this.mealsRepository.save(meal);
 
       try {
         const mealItems = await this.mealItemsService.findByMealId(id, true);
@@ -485,27 +527,32 @@ export class MealsService {
   }
 
   /**
-   * Find meals by active status
-   * @param isActive Active status to filter by
-   * @returns Array of meals with the specified active status
+   * Find meals by deleted status
+   * @param isDeleted Whether to fetch deleted or active meals
+   * @returns Array of meals with the specified deleted status
    */
-  async findByActiveStatus(isActive: boolean): Promise<Meal[]> {
+  async findByDeletedStatus(isDeleted: boolean): Promise<Meal[]> {
     try {
       const meals = await this.mealsRepository.find({
-        where: { isActive },
+        withDeleted: true,
+        where: {
+          deletedAt: isDeleted ? Not(IsNull()) : IsNull(),
+        },
         relations: ['items', 'category'],
       });
 
-      this.logger.log(`Found ${meals.length} meals with isActive=${isActive}`);
+      this.logger.log(
+        `Found ${meals.length} meals with isDeleted=${isDeleted}`,
+      );
       return meals;
     } catch (err) {
       return handleError(
         err,
         [],
-        `Failed to find meals with isActive=${isActive}`,
+        `Failed to find meals with isDeleted=${isDeleted}`,
         () => {
-          this.logger.logError(err, 'MealsService.findByActiveStatus', {
-            isActive,
+          this.logger.logError(err, 'MealsService.findByDeletedStatus', {
+            isDeleted,
           });
         },
       );

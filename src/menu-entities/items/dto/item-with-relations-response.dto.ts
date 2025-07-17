@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Exclude, Expose } from 'class-transformer';
-import { CreateItemIngredientDto } from 'src/menu-entities/item-ingredients/dto/create-item-ingredient.dto';
+import { CreateItemIngredientDto } from '../../item-ingredients/dto/create-item-ingredient.dto';
 import { ItemResponseDto } from './item-response.dto';
 
 @Exclude()

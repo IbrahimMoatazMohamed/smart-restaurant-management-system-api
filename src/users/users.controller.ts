@@ -32,9 +32,9 @@ import { UserResponseDto } from './dto/user-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { AdminOnly } from '../auth/decorators/roles.decorator';
-import { MeOrAdmin } from 'src/auth/decorators/me-or-admin.decorator';
-import { ImageUpload } from 'src/file-upload/decorators/image-upload.decorator';
-import { ImageUploadHelper } from 'src/file-upload/helpers/image-upload.helper';
+import { MeOrAdmin } from '../auth/decorators/me-or-admin.decorator';
+import { ImageUpload } from '../file-upload/decorators/image-upload.decorator';
+import { ImageUploadHelper } from '../file-upload/helpers/image-upload.helper';
 
 /**
  * Users Controller

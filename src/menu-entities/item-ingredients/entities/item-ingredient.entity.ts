@@ -1,4 +1,4 @@
-import { Item } from 'src/menu-entities/items/entities/item.entity';
+import { Item } from '../../items/entities/item.entity';
 import { ApiProperty } from '@nestjs/swagger';
 import {
   Entity,
@@ -11,8 +11,8 @@ import {
   UpdateDateColumn,
   CreateDateColumn,
 } from 'typeorm';
-import { Ingredient } from 'src/menu-entities/ingredients/entities/ingredient.entity';
-import Measurement from 'src/menu-entities/ingredients/types/measurement.enum';
+import { Ingredient } from '../../ingredients/entities/ingredient.entity';
+import Measurement from '../../ingredients/types/measurement.enum';
 
 @Entity('item_ingredients')
 @Index(['item_id', 'ingredient_id'], { unique: true })

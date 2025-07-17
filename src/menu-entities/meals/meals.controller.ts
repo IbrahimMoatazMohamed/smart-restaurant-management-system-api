@@ -34,11 +34,11 @@ import { CreateMealDto } from './dto/create-meal.dto';
 import { UpdateMealDto } from './dto/update-meal.dto';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { MealResponseDto } from './dto/meal-response.dto';
-import { ImageUpload } from 'src/file-upload/decorators/image-upload.decorator';
-import { ImageUploadHelper } from 'src/file-upload/helpers/image-upload.helper';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { AdminOnly } from 'src/auth/decorators/roles.decorator';
+import { ImageUpload } from '../../file-upload/decorators/image-upload.decorator';
+import { ImageUploadHelper } from '../../file-upload/helpers/image-upload.helper';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { AdminOnly } from '../../auth/decorators/roles.decorator';
 
 /**
  * Meals Controller
@@ -181,6 +181,32 @@ export class MealsController {
   }
 
   /**
+   * Get a meal by ID with its items
+   *
+   * @param id Meal ID
+   * @returns Meal with its items
+   */
+  @Get(':id/with-items')
+  @ApiOperation({ summary: 'Get a meal by ID with its items' })
+  @ApiParam({ name: 'id', description: 'Meal ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Meal with items found.',
+    type: MealResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Meal not found.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to retrieve meal with items.',
+  })
+  async findOneWithItems(@Param('id') id: string): Promise<MealResponseDto> {
+    this.logger.log(`Retrieving meal with items for ID: ${id}`);
+
+    return await this.mealsService.findOneWithItems(+id);
+  }
+
+  /**
    * Update a meal
    *
    * @param id Meal ID
@@ -292,30 +318,30 @@ export class MealsController {
   }
 
   /**
-   * Find meals by active status
+   * Find meals by deleted status
    *
-   * @param isActive Active status to filter by
+   * @param isDeleted Whether to fetch deleted or active meals
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
-  @Get('by-status/:isActive')
+  @Get('by-deleted-status/:isDeleted')
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Find meals by active status' })
-  @ApiParam({ name: 'isActive', description: 'Active status (true/false)' })
+  @ApiOperation({ summary: 'Find meals by deleted status' })
+  @ApiParam({ name: 'isDeleted', description: 'Deleted status (true/false)' })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'List of meals with specified status.',
+    description: 'List of meals with specified deleted status.',
     type: [MealResponseDto],
   })
   @ApiInternalServerErrorResponse({
-    description: 'Failed to retrieve meals by status.',
+    description: 'Failed to retrieve meals by deleted status.',
   })
-  async findByActiveStatus(
-    @Param('isActive', new ParseBoolPipe()) isActive: boolean,
+  async findByDeletedStatus(
+    @Param('isDeleted', new ParseBoolPipe()) isDeleted: boolean,
   ): Promise<MealResponseDto[]> {
-    this.logger.log(`Finding meals with isActive=${isActive}`);
+    this.logger.log(`Finding meals with isDeleted=${isDeleted}`);
 
-    return await this.mealsService.findByActiveStatus(isActive);
+    return await this.mealsService.findByDeletedStatus(isDeleted);
   }
 
   /**

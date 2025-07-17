@@ -5,9 +5,9 @@ import { MealsService } from './meals.service';
 import { Meal } from './entities/meal.entity';
 import { MealItem } from './entities/meal-item.entity';
 import { LoggerModule } from '../../logger/logger.module';
-import { ItemsModule } from 'src/menu-entities/items/items.module';
-import { MenuCategoriesModule } from 'src/menu-entities/menu-categories/menu-categories.module';
-import { FileUploadModule } from 'src/file-upload/file-upload.module';
+import { ItemsModule } from '../items/items.module';
+import { MenuCategoriesModule } from '../menu-categories/menu-categories.module';
+import { FileUploadModule } from '../../file-upload/file-upload.module';
 import { MealItemsModule } from '../meal-items/meal-items.module';
 
 @Module({

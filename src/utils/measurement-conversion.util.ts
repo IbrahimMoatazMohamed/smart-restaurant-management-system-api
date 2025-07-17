@@ -1,5 +1,5 @@
-import Measurement from 'src/menu-entities/ingredients/types/measurement.enum';
 import { BadRequestException } from '@nestjs/common';
+import Measurement from '../menu-entities/ingredients/types/measurement.enum';
 
 /**
  * Conversion factors for different measurement units
