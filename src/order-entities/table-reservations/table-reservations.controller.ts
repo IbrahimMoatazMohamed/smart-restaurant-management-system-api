@@ -32,7 +32,7 @@ import {
   RequirePermissions,
 } from '../../auth/decorators/roles.decorator';
 import { ApiBearerAuth } from '@nestjs/swagger';
-import { MeOrAdmin } from '../../auth/decorators/me-or-admin.decorator';
+import { MeOrAdminOrAuthorized } from '../../auth/decorators/me-or-admin.decorator';
 
 @ApiTags('table-reservations')
 @Controller('table-reservations')
@@ -121,7 +121,7 @@ export class TableReservationsController {
     description: 'ID of the user to get reservations for',
   })
   async findByUser(
-    @MeOrAdmin() userId: number,
+    @MeOrAdminOrAuthorized('tableReservations.read') userId: number,
   ): Promise<TableReservationResponseDto[]> {
     return this.tableReservationsService.findByUser(userId);
   }

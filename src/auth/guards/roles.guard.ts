@@ -76,8 +76,6 @@ export class RolesGuard implements CanActivate {
     this.logger.warn(
       `User ${user.userId} attempted to access resource requiring roles: ${requiredRolesList} or permissions: ${requiredPermissionsList}`,
     );
-    throw new ForbiddenException(
-      `Access denied: User lacks required role or permission`,
-    );
+    throw new ForbiddenException(`Access denied`);
   }
 }

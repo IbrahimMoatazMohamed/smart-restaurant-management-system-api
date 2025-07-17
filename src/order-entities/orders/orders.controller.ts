@@ -24,7 +24,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { OrderResponseDto } from './dto/order-response.dto';
-import { MeOrAdmin } from '../../auth/decorators/me-or-admin.decorator';
+import { MeOrAdminOrAuthorized } from '../../auth/decorators/me-or-admin.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import {
@@ -130,7 +130,9 @@ export class OrdersController {
   @ApiInternalServerErrorResponse({
     description: 'Failed to retrieve orders.',
   })
-  async findByUserId(@MeOrAdmin() userId: string): Promise<OrderResponseDto[]> {
+  async findByUserId(
+    @MeOrAdminOrAuthorized('orders.read') userId: string,
+  ): Promise<OrderResponseDto[]> {
     this.logger.log(`Retrieving orders for user with ID: ${userId}`);
 
     try {
