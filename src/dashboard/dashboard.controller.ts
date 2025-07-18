@@ -22,7 +22,7 @@ import { TableStatusDto } from './dto/table-status.dto';
 import { TopMealDto } from './dto/top-meal.dto';
 
 @ApiTags('Dashboard')
-@Controller('dashboard')
+@Controller(':tenantId/dashboard')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth('JWT-auth')
 @ApiResponse({
