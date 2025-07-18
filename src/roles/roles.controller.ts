@@ -40,7 +40,12 @@ import { Role } from './entities/role.entity';
  * Handles role-related operations
  */
 @ApiTags('roles')
-@Controller('roles')
+@ApiParam({
+  name: 'tenantId',
+  required: true,
+  description: 'Tenant identifier (e.g. restaurant1)',
+})
+@Controller(':tenantId/roles')
 export class RolesController {
   /**
    * Constructor

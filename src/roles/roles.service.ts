@@ -2,10 +2,9 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
-  BadRequestException,
+  Scope,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository } from 'typeorm';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { Role } from './entities/role.entity';
@@ -13,15 +12,21 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { CustomLoggerService } from '../logger/logger.service';
 import { handleError } from '../utils/error-handler.util';
+import { TenantRepositoryProvider } from 'src/tenant/tenant-repository.provider';
+import { Users } from '../users/entities/users.entity';
 
 /**
  * Roles Service
  *
  * Handles role-related operations
  */
-@Injectable()
+@Injectable({
+  scope: Scope.REQUEST,
+})
 export class RolesService {
   private availablePermissions: Record<string, string[]> = {};
+  private roleRepoPromise: Promise<Repository<Role>>;
+  private userRepoPromise: Promise<Repository<Users>>;
 
   /**
    * Constructor
@@ -29,12 +34,14 @@ export class RolesService {
    * Initializes the roles repository and custom logger
    */
   constructor(
-    @InjectRepository(Role)
-    private readonly rolesRepository: Repository<Role>,
+    private readonly tenantRepoProvider: TenantRepositoryProvider,
     private readonly logger: CustomLoggerService,
-    private readonly dataSource: DataSource,
+    // private readonly dataSource: DataSource,
   ) {
     this.logger.setContext('RolesService');
+
+    this.roleRepoPromise = this.tenantRepoProvider.getRepository(Role);
+    this.userRepoPromise = this.tenantRepoProvider.getRepository(Users);
 
     // Load available permissions from the JSON file
     try {
@@ -72,7 +79,9 @@ export class RolesService {
   async create(createRoleDto: CreateRoleDto): Promise<Role> {
     try {
       // Check if role with the same name already exists
-      const existingRole = await this.rolesRepository.findOne({
+      const rolesRepository = await this.roleRepoPromise;
+
+      const existingRole = await rolesRepository.findOne({
         where: { name: createRoleDto.name },
       });
 
@@ -96,17 +105,17 @@ export class RolesService {
       }
 
       // Create new role with permissions
-      const role = this.rolesRepository.create({
+      const role = rolesRepository.create({
         name: createRoleDto.name,
         description: createRoleDto.description,
         permissions: createRoleDto.permissions || {},
       });
 
-      return await this.rolesRepository.save(role);
+      return await rolesRepository.save(role);
     } catch (err) {
       return handleError(
         err,
-        [ConflictException, BadRequestException],
+        [ConflictException],
         'Failed to create role',
         () => {
           this.logger.logError(err, 'RolesService.create', {
@@ -124,7 +133,8 @@ export class RolesService {
    */
   async findAll(): Promise<Role[]> {
     try {
-      return await this.rolesRepository.find({
+      const rolesRepository = await this.roleRepoPromise;
+      return await rolesRepository.find({
         order: {
           name: 'ASC',
         },
@@ -148,7 +158,8 @@ export class RolesService {
         throw new NotFoundException(`Invalid role ID: ${id}`);
       }
 
-      const role = await this.rolesRepository.findOne({
+      const rolesRepository = await this.roleRepoPromise;
+      const role = await rolesRepository.findOne({
         where: { id },
       });
 
@@ -177,7 +188,8 @@ export class RolesService {
    */
   async findByName(name: string): Promise<Role> {
     try {
-      const role = await this.rolesRepository.findOne({
+      const rolesRepository = await this.roleRepoPromise;
+      const role = await rolesRepository.findOne({
         where: { name },
       });
 
@@ -212,7 +224,14 @@ export class RolesService {
         throw new NotFoundException(`Invalid role ID: ${id}`);
       }
 
-      const role = await this.findOne(id);
+      const rolesRepository = await this.roleRepoPromise;
+      const role = await rolesRepository.findOne({
+        where: { id },
+      });
+
+      if (!role) {
+        throw new NotFoundException(`Role with ID ${id} not found`);
+      }
 
       // Check if this is a system role that shouldn't be modified
       if (
@@ -227,7 +246,7 @@ export class RolesService {
 
       // If name is being updated, check for conflicts
       if (updateRoleDto.name && updateRoleDto.name !== role.name) {
-        const existingRole = await this.rolesRepository.findOne({
+        const existingRole = await rolesRepository.findOne({
           where: { name: updateRoleDto.name },
         });
 
@@ -259,11 +278,11 @@ export class RolesService {
       if (updateRoleDto.permissions)
         role.permissions = updateRoleDto.permissions;
 
-      return await this.rolesRepository.save(role);
+      return await rolesRepository.save(role);
     } catch (err) {
       return handleError(
         err,
-        [BadRequestException, ConflictException, NotFoundException],
+        [ConflictException, NotFoundException],
         `Failed to update role with ID ${id}`,
         () => {
           this.logger.logError(err, 'RolesService.update', {
@@ -287,14 +306,21 @@ export class RolesService {
         throw new NotFoundException(`Invalid role ID: ${id}`);
       }
 
-      const role = await this.findOne(id);
+      const rolesRepository = await this.roleRepoPromise;
+      const role = await rolesRepository.findOne({
+        where: { id },
+      });
+
+      if (!role) {
+        throw new NotFoundException(`Role with ID ${id} not found`);
+      }
 
       // Check if this is a system role that shouldn't be deleted
       if (role.name === 'Admin' || role.name === 'SuperAdmin') {
         throw new ConflictException(`Cannot delete system role: ${role.name}`);
       }
 
-      await this.rolesRepository.remove(role);
+      await rolesRepository.remove(role);
     } catch (err) {
       return handleError(
         err,
@@ -356,18 +382,13 @@ export class RolesService {
   async assignRoleToUser(userId: number, roleId: number): Promise<void> {
     try {
       const role = await this.findOne(roleId);
-
-      const userRepository = this.dataSource.getRepository('users');
+      const userRepository = await this.userRepoPromise;
       const user = await userRepository.findOne({ where: { id: userId } });
-
       if (!user) {
         throw new NotFoundException(`User with ID ${userId} not found`);
       }
-
-      // Update the user's role with the role name
       user.roleId = role.id;
       await userRepository.save(user);
-
       this.logger.log(
         `Assigned role ${role.name} (ID: ${roleId}) to user ID ${userId}`,
       );

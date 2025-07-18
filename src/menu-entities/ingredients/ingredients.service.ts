@@ -4,9 +4,10 @@ import {
   NotFoundException,
   BadRequestException,
   InternalServerErrorException,
+  Scope,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 import { Ingredient } from './entities/ingredient.entity';
 import { CreateIngredientDto } from './dto/create-ingredient.dto';
 import { UpdateIngredientDto } from './dto/update-ingredient.dto';
@@ -20,19 +21,24 @@ import {
 } from '../../utils/measurement-conversion.util';
 import Measurement from './types/measurement.enum';
 
-@Injectable()
+@Injectable({
+  scope: Scope.REQUEST,
+})
 export class IngredientsService {
+  private ingredientRepoPromise: Promise<Repository<Ingredient>>;
+
   /**
    * Constructor
    *
    * Initializes the ingredients service with repository and logger
    */
   constructor(
-    @InjectRepository(Ingredient)
-    private readonly ingredientsRepository: Repository<Ingredient>,
+    private readonly tenantRepoProvider: TenantRepositoryProvider,
     private readonly logger: CustomLoggerService,
   ) {
     this.logger.setContext('IngredientsService');
+    this.ingredientRepoPromise =
+      this.tenantRepoProvider.getRepository(Ingredient);
   }
 
   /**
@@ -53,9 +59,10 @@ export class IngredientsService {
         );
       }
 
-      const ingredient = this.ingredientsRepository.create(createIngredientDto);
+      const ingredientsRepository = await this.ingredientRepoPromise;
+      const ingredient = ingredientsRepository.create(createIngredientDto);
 
-      return await this.ingredientsRepository.save(ingredient);
+      return await ingredientsRepository.save(ingredient);
     } catch (error) {
       // Handle duplicate entry errors
       handleDuplicateEntryError(
@@ -88,7 +95,8 @@ export class IngredientsService {
   async findAll(): Promise<Ingredient[]> {
     try {
       this.logger.log('Finding all ingredients');
-      return await this.ingredientsRepository.find({
+      const ingredientsRepository = await this.ingredientRepoPromise;
+      return await ingredientsRepository.find({
         relations: ['category'],
       });
     } catch (error) {
@@ -105,7 +113,8 @@ export class IngredientsService {
   async findAllWithDeleted(): Promise<Ingredient[]> {
     try {
       this.logger.log('Finding all ingredients including soft-deleted ones');
-      return await this.ingredientsRepository.find({
+      const ingredientsRepository = await this.ingredientRepoPromise;
+      return await ingredientsRepository.find({
         relations: ['category'],
         withDeleted: true,
       });
@@ -122,7 +131,8 @@ export class IngredientsService {
    */
   async findOne(id: number): Promise<Ingredient> {
     try {
-      const ingredient = await this.ingredientsRepository.findOne({
+      const ingredientsRepository = await this.ingredientRepoPromise;
+      const ingredient = await ingredientsRepository.findOne({
         where: { id },
         relations: ['category'],
       });
@@ -144,8 +154,10 @@ export class IngredientsService {
 
   async findByCategory(categoryId: number): Promise<Ingredient[]> {
     try {
-      const ingredients = await this.ingredientsRepository.find({
+      const ingredientsRepository = await this.ingredientRepoPromise;
+      const ingredients = await ingredientsRepository.find({
         where: { categoryId },
+        relations: ['category'],
       });
       return ingredients;
     } catch (error) {
@@ -187,7 +199,8 @@ export class IngredientsService {
       }
 
       // Update the ingredient
-      await this.ingredientsRepository.update(id, updateIngredientDto);
+      const ingredientsRepository = await this.ingredientRepoPromise;
+      await ingredientsRepository.update(id, updateIngredientDto);
 
       return await this.findOne(id);
     } catch (error) {
@@ -228,7 +241,8 @@ export class IngredientsService {
 
       await this.findOne(id);
 
-      await this.ingredientsRepository.softDelete(id);
+      const ingredientsRepository = await this.ingredientRepoPromise;
+      await ingredientsRepository.softDelete(id);
     } catch (error) {
       return handleError(
         error,
@@ -249,7 +263,8 @@ export class IngredientsService {
     try {
       this.logger.log(`Deleting ingredients by category ID: ${categoryId}`);
 
-      await this.ingredientsRepository.softDelete({ categoryId });
+      const ingredientsRepository = await this.ingredientRepoPromise;
+      await ingredientsRepository.softDelete({ categoryId });
     } catch (error) {
       return handleError(
         error,
@@ -272,10 +287,11 @@ export class IngredientsService {
     try {
       this.logger.log(`Restoring ingredient with ID: ${id}`);
 
-      const ingredient = await this.ingredientsRepository.findOne({
+      const ingredientsRepository = await this.ingredientRepoPromise;
+      const ingredient = await ingredientsRepository.findOne({
         where: { id },
-        withDeleted: true,
         relations: ['category'],
+        withDeleted: true,
       });
 
       if (!ingredient) {
@@ -283,17 +299,16 @@ export class IngredientsService {
         throw new NotFoundException(`Ingredient with ID ${id} not found`);
       }
 
-      // Check if the ingredient's category is deleted
-      if (ingredient.category && ingredient.category.deletedAt) {
+      if (!ingredient.category) {
         this.logger.warn(
-          `Cannot restore ingredient with ID ${id} because its category is deleted`,
+          `Ingredient with ID ${id} has no category or category is deleted`,
         );
         throw new BadRequestException(
-          `Cannot restore ingredient because its category is deleted. Please restore the category first.`,
+          `Cannot restore ingredient with ID ${id} because its category is deleted or missing`,
         );
       }
 
-      await this.ingredientsRepository.restore(id);
+      await ingredientsRepository.restore(id);
 
       this.logger.log(`Ingredient with ID ${id} has been restored`);
     } catch (error) {
@@ -419,7 +434,8 @@ export class IngredientsService {
       ).toFixed(4),
     );
 
-    const updatedIngredient = await this.ingredientsRepository.save(ingredient);
+    const ingredientsRepository = await this.ingredientRepoPromise;
+    const updatedIngredient = await ingredientsRepository.save(ingredient);
     this.logger.log(
       `${gerund.charAt(0).toUpperCase() + gerund.slice(1)}d quantity for ingredient ID: ${id}, new stock: ${updatedIngredient.stock}`,
     );

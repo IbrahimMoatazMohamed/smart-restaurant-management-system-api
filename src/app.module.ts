@@ -1,24 +1,24 @@
 import { Module } from '@nestjs/common';
-import { UsersModule } from './users/users.module';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { LoggerModule } from './logger/logger.module';
-import { IngredientsModule } from './menu-entities/ingredients/ingredients.module';
-import { ItemsModule } from './menu-entities/items/items.module';
-import { MealsModule } from './menu-entities/meals/meals.module';
-import { OrdersModule } from './order-entities/orders/orders.module';
-import { TablesModule } from './order-entities/tables/tables.module';
-import { MenuCategoriesModule } from './menu-entities/menu-categories/menu-categories.module';
-import { ItemIngredientsModule } from './menu-entities/item-ingredients/item-ingredients.module';
-import { CouponsModule } from './order-entities/coupons/coupons.module';
-import { AuthModule } from './auth/auth.module';
-import { IngredientCategoriesModule } from './menu-entities/ingredient-categories/ingredient-categories.module';
-import { FileUploadModule } from './file-upload/file-upload.module';
+import { TenantModule } from './tenant/tenant.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
-import { MealItemsModule } from './menu-entities/meal-items/meal-items.module';
-import { TableReservationsModule } from './order-entities/table-reservations/table-reservations.module';
 import { RolesModule } from './roles/roles.module';
+import { UsersModule } from './users/users.module';
+import { AuthModule } from './auth/auth.module';
+import { CouponsModule } from './order-entities/coupons/coupons.module';
+import { TablesModule } from './order-entities/tables/tables.module';
+import { FileUploadModule } from './file-upload/file-upload.module';
+import { IngredientCategoriesModule } from './menu-entities/ingredient-categories/ingredient-categories.module';
+import { TableReservationsModule } from './order-entities/table-reservations/table-reservations.module';
+import { IngredientsModule } from './menu-entities/ingredients/ingredients.module';
+import { ItemsModule } from './menu-entities/items/items.module';
+import { ItemIngredientsModule } from './menu-entities/item-ingredients/item-ingredients.module';
+import { MenuCategoriesModule } from './menu-entities/menu-categories/menu-categories.module';
+import { MealsModule } from './menu-entities/meals/meals.module';
+import { OrdersModule } from './order-entities/orders/orders.module';
+import { MealItemsModule } from './menu-entities/meal-items/meal-items.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
@@ -26,16 +26,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    TypeOrmModule.forRoot({
-      type: 'mysql',
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT as string) || 3306,
-      username: process.env.DB_USER || 'root',
-      password: process.env.DB_PASSWORD || '',
-      database: process.env.DB_NAME || 'smart_restaurant',
-      entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: process.env.NODE_ENV !== 'production',
-    }),
+    TenantModule,
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'uploads'),
       serveRoot: '/api/uploads',

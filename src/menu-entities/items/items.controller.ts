@@ -53,7 +53,12 @@ import {
  * Handles item-related operations including creation, retrieval, update, and deletion of menu items
  */
 @ApiTags('items')
-@Controller('items')
+@ApiParam({
+  name: 'tenantId',
+  required: true,
+  description: 'Tenant identifier (e.g. restaurant1)',
+})
+@Controller(':tenantId/items')
 export class ItemsController {
   /**
    * Constructor

@@ -44,7 +44,12 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
  * Handles ingredient-related operations
  */
 @ApiTags('ingredients')
-@Controller('ingredients')
+@ApiParam({
+  name: 'tenantId',
+  description: 'Tenant ID',
+  type: 'string',
+})
+@Controller(':tenantId/ingredients')
 export class IngredientsController {
   /**
    * Constructor

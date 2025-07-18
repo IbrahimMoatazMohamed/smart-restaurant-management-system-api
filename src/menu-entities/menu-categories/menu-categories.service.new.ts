@@ -167,39 +167,25 @@ export class MenuCategoriesService {
    */
   async update(id: number, updateMenuCategoryDto: UpdateMenuCategoryDto) {
     try {
-      // Check if category exists
-      const existingCategory = await this.findOne(id);
+      const menuCategoryRepository = await this.menuCategoryRepoPromise;
+      const category = await this.findOne(id);
 
-      // If updating name, check if the new name already exists for another category
+      // Check if the new name already exists (if name is being updated)
       if (
         updateMenuCategoryDto.name &&
-        updateMenuCategoryDto.name !== existingCategory.name
+        updateMenuCategoryDto.name !== category.name
       ) {
         await this.checkCategoryNameExists(updateMenuCategoryDto.name, id);
       }
 
       // Update the category
-      const menuCategoryRepository = await this.menuCategoryRepoPromise;
       await menuCategoryRepository.update(id, updateMenuCategoryDto);
 
       return this.findOne(id);
     } catch (err) {
-      // Handle duplicate entry errors
-      handleDuplicateEntryError(
-        err,
-        `A menu category with name "${updateMenuCategoryDto.name}" already exists`,
-        () => {
-          this.logger.error(
-            `Database conflict: Category name "${updateMenuCategoryDto.name}" already exists`,
-            JSON.stringify(err),
-          );
-        },
-      );
-
-      // Handle other errors
       return handleError(
         err,
-        [ConflictException, BadRequestException, NotFoundException],
+        [NotFoundException, ConflictException],
         `Failed to update menu category with ID ${id}`,
         () => {
           this.logger.logError(err, 'MenuCategoriesService.update', {
@@ -218,18 +204,16 @@ export class MenuCategoriesService {
    */
   async remove(id: number): Promise<void> {
     try {
-      this.logger.log(`Soft deleting menu category with ID: ${id}`);
-
-      const menuCategory = await this.findOne(id);
-
-      menuCategory.isActive = false;
       const menuCategoryRepository = await this.menuCategoryRepoPromise;
-      await menuCategoryRepository.save(menuCategory);
+      const category = await this.findOne(id);
 
+      // Set isActive to false before soft deleting
+      category.isActive = false;
+      await menuCategoryRepository.save(category);
+      // Soft delete the category
       await menuCategoryRepository.softDelete(id);
-      this.logger.log(`Menu category with ID ${id} soft deleted`);
     } catch (err) {
-      return handleError(
+      handleError(
         err,
         [NotFoundException],
         `Failed to soft delete menu category with ID ${id}`,
@@ -256,8 +240,8 @@ export class MenuCategoriesService {
 
       this.logger.log(`Restoring soft-deleted menu category with ID: ${id}`);
 
-      // Check if the category exists in deleted items
       const menuCategoryRepository = await this.menuCategoryRepoPromise;
+      // Check if the category exists in deleted items
       const deletedCategory = await menuCategoryRepository.findOne({
         where: { id },
         withDeleted: true,
@@ -306,8 +290,8 @@ export class MenuCategoriesService {
     try {
       this.logger.log('Finding all soft-deleted menu categories');
 
-      // Use withDeleted to include soft-deleted entities and filter to only get deleted ones
       const menuCategoryRepository = await this.menuCategoryRepoPromise;
+      // Use withDeleted to include soft-deleted entities and filter to only get deleted ones
       const categories = await menuCategoryRepository.find({
         withDeleted: true,
         relations: ['items'],
@@ -371,8 +355,8 @@ export class MenuCategoriesService {
    */
   async hardDelete(id: number): Promise<void> {
     try {
-      // Check if category exists (including soft-deleted ones)
       const menuCategoryRepository = await this.menuCategoryRepoPromise;
+      // Check if category exists (including soft-deleted ones)
       const category = await menuCategoryRepository.findOne({
         where: { id },
         withDeleted: true,

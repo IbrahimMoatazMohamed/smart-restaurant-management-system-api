@@ -26,7 +26,12 @@ import { ApiBearerAuth } from '@nestjs/swagger';
 import { UseGuards } from '@nestjs/common';
 
 @ApiTags('meal-items')
-@Controller('meal-items')
+@ApiParam({
+  name: 'tenantId',
+  required: true,
+  description: 'Tenant identifier (e.g. restaurant1)',
+})
+@Controller(':tenantId/meal-items')
 export class MealItemsController {
   constructor(private readonly mealItemsService: MealItemsService) {}
 

@@ -2,6 +2,8 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
+import { TenantMiddleware } from './tenant/tenant.middleware';
+import { Request, Response, NextFunction } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -14,6 +16,12 @@ async function bootstrap() {
   });
 
   app.setGlobalPrefix('api');
+
+  // Apply tenant middleware to extract tenantId from URL
+  const tenantMiddleware = new TenantMiddleware();
+  app.use((req: Request, res: Response, next: NextFunction) =>
+    tenantMiddleware.use(req as Request & { tenantId?: string }, res, next),
+  );
 
   app.useGlobalPipes(
     new ValidationPipe({

@@ -39,7 +39,7 @@ import { ApiBearerAuth } from '@nestjs/swagger';
  * Handles order-related operations
  */
 @ApiTags('orders')
-@Controller('orders')
+@Controller(':tenantId/orders')
 export class OrdersController {
   /**
    * Constructor
@@ -63,6 +63,7 @@ export class OrdersController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiBearerAuth('JWT-auth')
+  @ApiParam({ name: 'tenantId', description: 'Tenant ID' })
   @ApiOperation({ summary: 'Create a new order' })
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -93,6 +94,7 @@ export class OrdersController {
   @RequirePermissions('orders.read')
   @Get()
   @ApiBearerAuth('JWT-auth')
+  @ApiParam({ name: 'tenantId', description: 'Tenant ID' })
   @ApiOperation({ summary: 'Get all orders' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -117,6 +119,7 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard)
   @Get('user/:userId')
   @ApiBearerAuth('JWT-auth')
+  @ApiParam({ name: 'tenantId', description: 'Tenant ID' })
   @ApiOperation({ summary: 'Get orders by user ID' })
   @ApiParam({ name: 'userId', description: 'User ID' })
   @ApiResponse({
@@ -156,6 +159,7 @@ export class OrdersController {
   @RequirePermissions('orders.read')
   @Get(':id')
   @ApiBearerAuth('JWT-auth')
+  @ApiParam({ name: 'tenantId', description: 'Tenant ID' })
   @ApiOperation({ summary: 'Get an order by ID' })
   @ApiParam({ name: 'id', description: 'Order ID' })
   @ApiResponse({
@@ -187,6 +191,7 @@ export class OrdersController {
   @RequirePermissions('orders.update')
   @Patch(':id')
   @ApiBearerAuth('JWT-auth')
+  @ApiParam({ name: 'tenantId', description: 'Tenant ID' })
   @ApiOperation({ summary: 'Update an order' })
   @ApiParam({ name: 'id', description: 'Order ID' })
   @ApiResponse({
@@ -223,6 +228,7 @@ export class OrdersController {
   @Delete(':id')
   @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiParam({ name: 'tenantId', description: 'Tenant ID' })
   @ApiOperation({ summary: 'Delete an order' })
   @ApiParam({ name: 'id', description: 'Order ID' })
   @ApiResponse({

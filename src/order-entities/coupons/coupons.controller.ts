@@ -44,7 +44,12 @@ import { UseGuards } from '@nestjs/common';
  * Handles HTTP requests related to coupons
  */
 @ApiTags('coupons')
-@Controller('coupons')
+@ApiParam({
+  name: 'tenantId',
+  required: true,
+  description: 'Tenant identifier (e.g. restaurant1)',
+})
+@Controller(':tenantId/coupons')
 export class CouponsController {
   /**
    * Constructor

@@ -3,11 +3,10 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
-  Inject,
-  forwardRef,
+  Scope,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not, IsNull } from 'typeorm';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 import { CreateMealDto } from './dto/create-meal.dto';
 import { UpdateMealDto } from './dto/update-meal.dto';
 import { Meal } from './entities/meal.entity';
@@ -17,30 +16,32 @@ import { CustomLoggerService } from '../../logger/logger.service';
 import { handleDuplicateEntryError } from '../../utils/duplicate-entry-handler.util';
 import { handleError } from '../../utils/error-handler.util';
 import { validateEntityExists } from '../../utils/entity-validation.util';
-import { MealItemsService } from '../meal-items/meal-items.service';
+import { MealItem } from '../meal-items/entities/meal-item.entity';
 
 /**
  * Meals Service
  *
  * Handles meal-related operations
  */
-@Injectable()
+@Injectable({ scope: Scope.REQUEST })
 export class MealsService {
+  private readonly mealsRepoPromise: Promise<Repository<Meal>>;
+  private readonly mealItemsRepoPromise: Promise<Repository<MealItem>>;
+
   /**
    * Constructor
    *
    * Initializes the meals repository, items service, menu categories service, and custom logger
    */
   constructor(
-    @InjectRepository(Meal)
-    private readonly mealsRepository: Repository<Meal>,
+    private readonly tenantRepoProvider: TenantRepositoryProvider,
     private readonly itemsService: ItemsService,
     private readonly menuCategoriesService: MenuCategoriesService,
-    @Inject(forwardRef(() => MealItemsService))
-    private readonly mealItemsService: MealItemsService,
     private readonly logger: CustomLoggerService,
   ) {
     this.logger.setContext('MealsService');
+    this.mealsRepoPromise = this.tenantRepoProvider.getRepository(Meal);
+    this.mealItemsRepoPromise = this.tenantRepoProvider.getRepository(MealItem);
   }
 
   /**
@@ -54,7 +55,8 @@ export class MealsService {
     name: string,
     excludeMealId?: number,
   ): Promise<void> {
-    const existingMeal = await this.mealsRepository.findOne({
+    const mealsRepository = await this.mealsRepoPromise;
+    const existingMeal = await mealsRepository.findOne({
       where: { name },
     });
 
@@ -81,8 +83,9 @@ export class MealsService {
 
       // Create the meal without items first
       const { mealItems, ...mealData } = createMealDto;
-      const meal = this.mealsRepository.create(mealData);
-      const savedMeal = await this.mealsRepository.save(meal);
+      const mealsRepository = await this.mealsRepoPromise;
+      const meal = mealsRepository.create(mealData);
+      const savedMeal = await mealsRepository.save(meal);
 
       if (mealItems && mealItems.length > 0) {
         const processedMealItems = mealItems
@@ -132,7 +135,8 @@ export class MealsService {
 
           for (const mealItem of mealItemEntities) {
             try {
-              await this.mealItemsService.create(mealItem);
+              const mealItemRepository = await this.mealItemsRepoPromise;
+              await mealItemRepository.save(mealItem);
             } catch (error) {
               this.logger.error(
                 `Failed to create meal item: ${JSON.stringify(mealItem)}`,
@@ -147,7 +151,7 @@ export class MealsService {
             ),
           );
           savedMeal.items = items;
-          await this.mealsRepository.save(savedMeal);
+          await mealsRepository.save(savedMeal);
         }
       }
       return this.findOne(savedMeal.id);
@@ -182,13 +186,16 @@ export class MealsService {
    */
   async findAll(includeDeleted: boolean = false) {
     try {
-      return await this.mealsRepository.find({
-        relations: ['items', 'category', 'mealItems'],
+      const mealsRepository = await this.mealsRepoPromise;
+      return await mealsRepository.find({
         withDeleted: includeDeleted,
+        relations: ['category', 'mealItems', 'mealItems.item'],
       });
     } catch (err) {
       return handleError(err, [], 'Failed to retrieve meals', () => {
-        this.logger.logError(err, 'MealsService.findAll');
+        this.logger.logError(err, 'MealsService.findAll', {
+          includeDeleted,
+        });
       });
     }
   }
@@ -201,8 +208,10 @@ export class MealsService {
    */
   async findOne(id: number) {
     try {
-      const meal = await this.mealsRepository.findOne({
+      const mealsRepository = await this.mealsRepoPromise;
+      const meal = await mealsRepository.findOne({
         where: { id },
+        relations: ['category', 'mealItems', 'mealItems.item'],
       });
 
       if (!meal) {
@@ -214,7 +223,7 @@ export class MealsService {
       return handleError(
         err,
         [NotFoundException],
-        `Failed to retrieve meal with ID ${id}`,
+        `Failed to find meal with ID ${id}`,
         () => {
           this.logger.logError(err, 'MealsService.findOne', { id });
         },
@@ -233,7 +242,11 @@ export class MealsService {
       const meal = await this.findOne(id);
 
       // Get meal items with their quantities
-      const mealItems = await this.mealItemsService.findByMealId(id);
+      const mealItemRepository = await this.mealItemsRepoPromise;
+      const mealItems = await mealItemRepository.find({
+        where: { mealId: id },
+        relations: ['item'],
+      });
       meal.mealItems = mealItems;
 
       // Get the related items
@@ -268,6 +281,7 @@ export class MealsService {
    */
   async update(id: number, updateMealDto: UpdateMealDto) {
     try {
+      const mealItemRepository = await this.mealItemsRepoPromise;
       const existingMeal = await this.findOne(id);
 
       if (updateMealDto.name && updateMealDto.name !== existingMeal.name) {
@@ -283,10 +297,14 @@ export class MealsService {
       }
 
       const { mealItems, ...restOfDto } = updateMealDto;
-      await this.mealsRepository.update(id, restOfDto);
+      const mealsRepository = await this.mealsRepoPromise;
+      await mealsRepository.update(id, restOfDto);
 
       if (mealItems && mealItems.length > 0) {
-        const existingMealItems = await this.mealItemsService.findByMealId(id);
+        const existingMealItems = await mealItemRepository.find({
+          where: { mealId: id },
+          relations: ['item'],
+        });
         const existingMealItemsMap = new Map(
           existingMealItems.map((item) => [item.itemId, item]),
         );
@@ -349,7 +367,7 @@ export class MealsService {
           for (const [itemId] of existingMealItemsMap) {
             if (!updatedItemIds.has(itemId)) {
               try {
-                await this.mealItemsService.remove(id, itemId);
+                await mealItemRepository.delete({ mealId: id, itemId });
                 this.logger.debug(
                   `Deleted meal item for meal ID ${id}, item ID ${itemId}`,
                 );
@@ -366,14 +384,14 @@ export class MealsService {
           for (const mealItem of mealItemEntities) {
             try {
               if (existingMealItemsMap.has(mealItem.itemId)) {
-                await this.mealItemsService.update(id, mealItem.itemId, {
+                await mealItemRepository.update(mealItem.itemId, {
                   quantity: mealItem.quantity,
                 });
                 this.logger.debug(
                   `Updated meal item for meal ID ${id}, item ID ${mealItem.itemId}, quantity: ${mealItem.quantity}`,
                 );
               } else {
-                await this.mealItemsService.create(mealItem);
+                await mealItemRepository.save(mealItem);
                 this.logger.debug(
                   `Created meal item for meal ID ${id}: ${JSON.stringify(mealItem)}`,
                 );
@@ -427,10 +445,12 @@ export class MealsService {
 
       await this.findOne(id);
 
-      await this.mealItemsService.softDeleteAllByMealId(id);
+      const mealItemRepository = await this.mealItemsRepoPromise;
+      await mealItemRepository.softDelete({ mealId: id });
       this.logger.log(`All meal items for meal ID ${id} soft deleted`);
 
-      await this.mealsRepository.softDelete(id);
+      const mealsRepository = await this.mealsRepoPromise;
+      await mealsRepository.softDelete(id);
 
       this.logger.log(`Meal with ID ${id} soft deleted`);
     } catch (err) {
@@ -460,7 +480,8 @@ export class MealsService {
 
       this.logger.log(`Restoring soft-deleted meal with ID: ${id}`);
 
-      const deletedMeal = await this.mealsRepository.findOne({
+      const mealsRepository = await this.mealsRepoPromise;
+      const deletedMeal = await mealsRepository.findOne({
         where: { id },
         withDeleted: true,
         relations: ['category'],
@@ -483,17 +504,21 @@ export class MealsService {
         );
       }
 
-      await this.mealsRepository.restore(id);
+      await mealsRepository.restore(id);
 
       try {
-        const mealItems = await this.mealItemsService.findByMealId(id, true);
+        const mealItemRepository = await this.mealItemsRepoPromise;
+        const mealItems = await mealItemRepository.find({
+          where: { mealId: id },
+          withDeleted: true,
+        });
 
         for (const mealItem of mealItems) {
           if (mealItem.deletedAt) {
-            await this.mealItemsService.restore(
-              mealItem.mealId,
-              mealItem.itemId,
-            );
+            await mealItemRepository.restore({
+              mealId: mealItem.mealId,
+              itemId: mealItem.itemId,
+            });
           }
         }
 
@@ -532,7 +557,8 @@ export class MealsService {
     try {
       this.logger.log('Finding all soft-deleted meals');
 
-      const meals = await this.mealsRepository.find({
+      const mealsRepository = await this.mealsRepoPromise;
+      const meals = await mealsRepository.find({
         withDeleted: true,
         relations: ['items', 'category'],
         where: {
@@ -556,7 +582,8 @@ export class MealsService {
    */
   async findByDeletedStatus(isDeleted: boolean): Promise<Meal[]> {
     try {
-      const meals = await this.mealsRepository.find({
+      const mealsRepository = await this.mealsRepoPromise;
+      const meals = await mealsRepository.find({
         withDeleted: true,
         where: {
           deletedAt: isDeleted ? Not(IsNull()) : IsNull(),
@@ -577,49 +604,6 @@ export class MealsService {
           this.logger.logError(err, 'MealsService.findByDeletedStatus', {
             isDeleted,
           });
-        },
-      );
-    }
-  }
-
-  /**
-   * Permanently delete a meal (hard delete)
-   *
-   * @param id Meal ID
-   */
-  async hardDelete(id: number): Promise<void> {
-    try {
-      const meal = await this.mealsRepository.findOne({
-        where: { id },
-        withDeleted: true,
-      });
-
-      if (!meal) {
-        throw new NotFoundException(`Meal with ID ${id} not found`);
-      }
-
-      try {
-        await this.mealItemsService.removeAllByMealId(id);
-        this.logger.log(`All meal items for meal ID ${id} hard deleted`);
-      } catch (mealItemError: unknown) {
-        const errorMessage =
-          mealItemError instanceof Error
-            ? mealItemError.message
-            : 'Unknown error';
-        this.logger.warn(
-          `There was an issue deleting meal items: ${errorMessage}`,
-        );
-      }
-
-      await this.mealsRepository.delete(id);
-      this.logger.log(`Meal with ID ${id} permanently deleted`);
-    } catch (err) {
-      handleError(
-        err,
-        [NotFoundException],
-        `Failed to permanently delete meal with ID ${id}`,
-        () => {
-          this.logger.logError(err, 'MealsService.hardDelete', { id });
         },
       );
     }
@@ -655,7 +639,11 @@ export class MealsService {
         throw new NotFoundException(`Meal with ID ${mealId} not found`);
       }
 
-      const mealItems = await this.mealItemsService.findByMealId(mealId);
+      const mealItemRepository = await this.mealItemsRepoPromise;
+      const mealItems = await mealItemRepository.find({
+        where: { mealId },
+        relations: ['item'],
+      });
 
       if (!mealItems || mealItems.length === 0) {
         this.logger.log(`Meal ID ${mealId} has no items to process`);

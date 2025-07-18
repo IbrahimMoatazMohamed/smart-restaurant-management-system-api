@@ -40,7 +40,12 @@ import {
  * Handles table-related operations
  */
 @ApiTags('tables')
-@Controller('tables')
+@ApiParam({
+  name: 'tenantId',
+  required: true,
+  description: 'Tenant identifier (e.g. restaurant1)',
+})
+@Controller(':tenantId/tables')
 export class TablesController {
   /**
    * Constructor

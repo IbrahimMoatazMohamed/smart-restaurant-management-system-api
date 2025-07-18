@@ -1,12 +1,11 @@
 import { Module } from '@nestjs/common';
-import { TablesService } from './tables.service';
-import { TablesController } from './tables.controller';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Table } from './entities/table.entity';
+import { TenantModule } from '../../tenant/tenant.module';
 import { LoggerModule } from '../../logger/logger.module';
+import { TablesController } from './tables.controller';
+import { TablesService } from './tables.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Table]), LoggerModule],
+  imports: [TenantModule, LoggerModule],
   controllers: [TablesController],
   providers: [TablesService],
   exports: [TablesService],

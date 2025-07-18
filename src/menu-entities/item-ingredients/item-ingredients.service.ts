@@ -6,8 +6,8 @@ import {
   InternalServerErrorException,
   Inject,
   forwardRef,
+  Scope,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, In } from 'typeorm';
 import { CreateItemIngredientDto } from './dto/create-item-ingredient.dto';
 import { UpdateItemIngredientDto } from './dto/update-item-ingredient.dto';
@@ -19,18 +19,24 @@ import { IngredientsService } from '../ingredients/ingredients.service';
 import { validateEntityExists } from '../../utils/entity-validation.util';
 import { handleError } from '../../utils/error-handler.util';
 import { handleDuplicateEntryError } from '../../utils/duplicate-entry-handler.util';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 
-@Injectable()
+@Injectable({
+  scope: Scope.REQUEST,
+})
 export class ItemIngredientsService {
+  private itemIngredientsRepoPromise: Promise<Repository<ItemIngredient>>;
+
   constructor(
-    @InjectRepository(ItemIngredient)
-    private readonly itemIngredientsRepository: Repository<ItemIngredient>,
+    private readonly tenantRepoProvider: TenantRepositoryProvider,
     @Inject(forwardRef(() => ItemsService))
     private readonly itemsService: ItemsService,
     private readonly ingredientsService: IngredientsService,
     private readonly logger: CustomLoggerService,
   ) {
     this.logger.setContext('ItemIngredientsService');
+    this.itemIngredientsRepoPromise =
+      this.tenantRepoProvider.getRepository(ItemIngredient);
   }
 
   /**
@@ -57,11 +63,12 @@ export class ItemIngredientsService {
         'Ingredient',
       );
 
-      const itemIngredient = this.itemIngredientsRepository.create(
+      const itemIngredientsRepository = await this.itemIngredientsRepoPromise;
+      const itemIngredient = itemIngredientsRepository.create(
         createItemIngredientDto,
       );
       const savedItemIngredient =
-        await this.itemIngredientsRepository.save(itemIngredient);
+        await itemIngredientsRepository.save(itemIngredient);
       return this.findOne(savedItemIngredient.id);
     } catch (error) {
       handleDuplicateEntryError(
@@ -92,7 +99,9 @@ export class ItemIngredientsService {
    */
   async findAll(): Promise<ItemIngredientResponseDto[]> {
     try {
-      const itemIngredients = await this.itemIngredientsRepository.find();
+      const itemIngredientsRepository = await this.itemIngredientsRepoPromise;
+      console.log(itemIngredientsRepository);
+      const itemIngredients = await itemIngredientsRepository.find();
       this.logger.log(`Found ${itemIngredients.length} item ingredients`);
       return itemIngredients;
     } catch (error) {
@@ -110,7 +119,8 @@ export class ItemIngredientsService {
    */
   async findOne(id: number): Promise<ItemIngredientResponseDto> {
     try {
-      const itemIngredient = await this.itemIngredientsRepository.findOne({
+      const itemIngredientsRepository = await this.itemIngredientsRepoPromise;
+      const itemIngredient = await itemIngredientsRepository.findOne({
         where: { id },
       });
       if (!itemIngredient) {
@@ -140,7 +150,8 @@ export class ItemIngredientsService {
       | FindOptionsWhere<ItemIngredient>[];
   }): Promise<ItemIngredientResponseDto[]> {
     try {
-      return await this.itemIngredientsRepository.find(options);
+      const itemIngredientsRepository = await this.itemIngredientsRepoPromise;
+      return await itemIngredientsRepository.find(options);
     } catch (error) {
       this.logger.logError(error, 'ItemIngredientsService.find', { options });
       throw new InternalServerErrorException('Failed to find item ingredients');
@@ -189,7 +200,8 @@ export class ItemIngredientsService {
       }
       this.logger.log(`Item ingredient with ID ${id} updated`);
 
-      await this.itemIngredientsRepository.save(itemIngredient);
+      const itemIngredientsRepository = await this.itemIngredientsRepoPromise;
+      await itemIngredientsRepository.save(itemIngredient);
       return this.findOne(id);
     } catch (error) {
       handleDuplicateEntryError(
@@ -220,7 +232,8 @@ export class ItemIngredientsService {
   async remove(id: number): Promise<void> {
     try {
       await this.findOne(id);
-      await this.itemIngredientsRepository.delete(id);
+      const itemIngredientsRepository = await this.itemIngredientsRepoPromise;
+      await itemIngredientsRepository.delete(id);
       this.logger.log(`Item ingredient with ID ${id} removed`);
     } catch (error) {
       return handleError(
@@ -240,7 +253,8 @@ export class ItemIngredientsService {
    */
   async delete(ids: number[]): Promise<void> {
     try {
-      const result = await this.itemIngredientsRepository.delete({
+      const itemIngredientsRepository = await this.itemIngredientsRepoPromise;
+      const result = await itemIngredientsRepository.delete({
         id: In(ids),
       });
       this.logger.log(`Deleted ${result.affected} item ingredients`);
@@ -285,17 +299,16 @@ export class ItemIngredientsService {
       }
 
       const existingCombinations = new Map<string, boolean>();
+      const itemIngredientsRepository = await this.itemIngredientsRepoPromise;
       for (const itemIngredient of itemIngredients) {
         if (itemIngredient.item_id && itemIngredient.ingredient_id) {
           const key = `${itemIngredient.item_id}-${itemIngredient.ingredient_id}`;
-          const existingRelation = await this.itemIngredientsRepository.findOne(
-            {
-              where: {
-                item_id: itemIngredient.item_id,
-                ingredient_id: itemIngredient.ingredient_id,
-              },
+          const existingRelation = await itemIngredientsRepository.findOne({
+            where: {
+              item_id: itemIngredient.item_id,
+              ingredient_id: itemIngredient.ingredient_id,
             },
-          );
+          });
 
           if (existingRelation) {
             throw new ConflictException(
@@ -314,7 +327,7 @@ export class ItemIngredientsService {
       }
 
       const savedIngredients =
-        await this.itemIngredientsRepository.save(itemIngredients);
+        await itemIngredientsRepository.save(itemIngredients);
       this.logger.log(`Saved ${savedIngredients.length} item ingredients`);
       return savedIngredients;
     } catch (error) {
@@ -369,7 +382,9 @@ export class ItemIngredientsService {
       }
 
       // Find existing item-ingredient relationships
-      const existingIngredients = await this.itemIngredientsRepository.find({
+      const existingIngredientsRepository =
+        await this.itemIngredientsRepoPromise;
+      const existingIngredients = await existingIngredientsRepository.find({
         where: itemIngredients.map((item) => ({
           item_id: item.item_id,
           ingredient_id: item.ingredient_id,
@@ -409,14 +424,14 @@ export class ItemIngredientsService {
         }
       });
       const results: ItemIngredient[] = [];
-
+      const itemIngredientsRepository = await this.itemIngredientsRepoPromise;
       if (toUpdate.length > 0) {
-        const updated = await this.itemIngredientsRepository.save(toUpdate);
+        const updated = await itemIngredientsRepository.save(toUpdate);
         results.push(...updated);
       }
 
       if (toInsert.length > 0) {
-        const inserted = await this.itemIngredientsRepository.save(toInsert);
+        const inserted = await itemIngredientsRepository.save(toInsert);
         results.push(...inserted);
       }
 
@@ -443,7 +458,8 @@ export class ItemIngredientsService {
     try {
       await validateEntityExists(itemId, this.itemsService, 'Item');
 
-      const itemIngredients = await this.itemIngredientsRepository.find({
+      const itemIngredientsRepository = await this.itemIngredientsRepoPromise;
+      const itemIngredients = await itemIngredientsRepository.find({
         where: { item_id: itemId },
         relations: ['ingredient'],
       });
@@ -477,7 +493,8 @@ export class ItemIngredientsService {
         'Ingredient',
       );
 
-      const itemIngredients = await this.itemIngredientsRepository.find({
+      const itemIngredientsRepository = await this.itemIngredientsRepoPromise;
+      const itemIngredients = await itemIngredientsRepository.find({
         where: { ingredient_id: ingredientId },
         relations: ['item'],
       });

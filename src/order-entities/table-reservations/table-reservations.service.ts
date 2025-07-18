@@ -2,8 +2,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Scope,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not } from 'typeorm';
 import { format, parseISO, isValid, addHours } from 'date-fns';
 
@@ -16,17 +16,22 @@ import { CreateTableReservationDto } from './dto/create-table-reservation.dto';
 import { UpdateTableReservationDto } from './dto/update-table-reservation.dto';
 import { TableReservationResponseDto } from './dto/table-reservation-response.dto';
 import { CustomLoggerService } from '../../logger/logger.service';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 
-@Injectable()
+@Injectable({
+  scope: Scope.REQUEST,
+})
 export class TableReservationsService {
+  private tableReservationRepoPromise: Promise<Repository<TableReservation>>;
+  private tableRepoPromise: Promise<Repository<Table>>;
   constructor(
-    @InjectRepository(TableReservation)
-    private tableReservationRepository: Repository<TableReservation>,
-    @InjectRepository(Table)
-    private tableRepository: Repository<Table>,
+    private readonly tenantRepositoryProvider: TenantRepositoryProvider,
     private readonly logger: CustomLoggerService,
   ) {
     this.logger.setContext('TableReservationsService');
+    this.tableReservationRepoPromise =
+      this.tenantRepositoryProvider.getRepository(TableReservation);
+    this.tableRepoPromise = this.tenantRepositoryProvider.getRepository(Table);
   }
 
   /**
@@ -45,7 +50,8 @@ export class TableReservationsService {
 
     this.logger.log(`Creating reservation for table ID: ${tableId}`);
 
-    const table = await this.tableRepository.findOne({
+    const tableRepository = await this.tableRepoPromise;
+    const table = await tableRepository.findOne({
       where: { id: Number(tableId) },
     });
 
@@ -84,7 +90,8 @@ export class TableReservationsService {
 
     const reservationEndTime = addHours(reservationDateTime, 2);
 
-    const conflictingReservations = await this.tableReservationRepository.find({
+    const tableReservationRepository = await this.tableReservationRepoPromise;
+    const conflictingReservations = await tableReservationRepository.find({
       where: {
         tableId: Number(tableId),
         status: ReservationStatus.CONFIRMED,
@@ -134,17 +141,11 @@ export class TableReservationsService {
       }
     }
 
-    const reservationData = {
+    const reservation = tableReservationRepository.create({
       ...createTableReservationDto,
-      userId: createTableReservationDto.userId || null,
-      status: createTableReservationDto.status || ReservationStatus.PENDING,
-    };
-
-    const newReservation =
-      this.tableReservationRepository.create(reservationData);
-
-    const savedReservation =
-      await this.tableReservationRepository.save(newReservation);
+      tableId: Number(tableId),
+    });
+    const savedReservation = await tableReservationRepository.save(reservation);
     return new TableReservationResponseDto(savedReservation);
   }
 
@@ -162,10 +163,11 @@ export class TableReservationsService {
       `Finding all reservations with filters: date=${date}, status=${status}`,
     );
 
-    const queryBuilder =
-      this.tableReservationRepository.createQueryBuilder('reservation');
-    queryBuilder.leftJoinAndSelect('reservation.table', 'table');
-    queryBuilder.leftJoinAndSelect('reservation.user', 'user');
+    const tableReservationRepository = await this.tableReservationRepoPromise;
+    const queryBuilder = tableReservationRepository
+      .createQueryBuilder('reservation')
+      .leftJoinAndSelect('reservation.table', 'table')
+      .leftJoinAndSelect('reservation.user', 'user');
 
     if (date) {
       const parsedDate = parseISO(date);
@@ -198,13 +200,11 @@ export class TableReservationsService {
   async findByTable(tableId: number): Promise<TableReservationResponseDto[]> {
     this.logger.log(`Finding reservations for table ID: ${tableId}`);
 
-    const reservations = await this.tableReservationRepository.find({
+    const tableReservationRepository = await this.tableReservationRepoPromise;
+    const reservations = await tableReservationRepository.find({
       where: { tableId },
       relations: ['table', 'user'],
-      order: {
-        reservationDate: 'ASC',
-        reservationTime: 'ASC',
-      },
+      order: { reservationDate: 'ASC', reservationTime: 'ASC' },
     });
 
     return reservations.map(
@@ -220,13 +220,11 @@ export class TableReservationsService {
   async findByUser(userId: number): Promise<TableReservationResponseDto[]> {
     this.logger.log(`Finding reservations for user ID: ${userId}`);
 
-    const reservations = await this.tableReservationRepository.find({
+    const tableReservationRepository = await this.tableReservationRepoPromise;
+    const reservations = await tableReservationRepository.find({
       where: { userId },
       relations: ['table', 'user'],
-      order: {
-        reservationDate: 'ASC',
-        reservationTime: 'ASC',
-      },
+      order: { reservationDate: 'ASC', reservationTime: 'ASC' },
     });
 
     return reservations.map(
@@ -242,7 +240,8 @@ export class TableReservationsService {
   async findOne(id: number): Promise<TableReservationResponseDto> {
     this.logger.log(`Finding reservation with ID: ${id}`);
 
-    const reservation = await this.tableReservationRepository.findOne({
+    const tableReservationRepository = await this.tableReservationRepoPromise;
+    const reservation = await tableReservationRepository.findOne({
       where: { id },
       relations: ['table', 'user'],
     });
@@ -266,7 +265,9 @@ export class TableReservationsService {
   ): Promise<TableReservationResponseDto> {
     this.logger.log(`Updating reservation with ID: ${id}`);
 
-    const reservation = await this.tableReservationRepository.findOne({
+    const tableReservationRepository = await this.tableReservationRepoPromise;
+    const tableRepository = await this.tableRepoPromise;
+    const reservation = await tableReservationRepository.findOne({
       where: { id },
     });
 
@@ -279,7 +280,7 @@ export class TableReservationsService {
       updateTableReservationDto.tableId &&
       updateTableReservationDto.tableId !== reservation.tableId
     ) {
-      const newTable = await this.tableRepository.findOne({
+      const newTable = await tableRepository.findOne({
         where: { id: updateTableReservationDto.tableId },
       });
 
@@ -340,14 +341,13 @@ export class TableReservationsService {
       const reservationEndTime = addHours(reservationDateTime, 2);
 
       // We'll use the parsed date for filtering by date if needed
-      const conflictingReservations =
-        await this.tableReservationRepository.find({
-          where: {
-            tableId,
-            status: ReservationStatus.CONFIRMED,
-            id: Not(id), // Exclude current reservation
-          },
-        });
+      const conflictingReservations = await tableReservationRepository.find({
+        where: {
+          tableId,
+          status: ReservationStatus.CONFIRMED,
+          id: Not(id), // Exclude current reservation
+        },
+      });
 
       // Check for time conflicts
       for (const conflictReservation of conflictingReservations) {
@@ -365,7 +365,7 @@ export class TableReservationsService {
           (reservationDateTime <= existingReservationTime &&
             reservationEndTime >= existingEndTime)
         ) {
-          const table = await this.tableRepository.findOne({
+          const table = await tableRepository.findOne({
             where: { id: tableId },
           });
           throw new BadRequestException(
@@ -376,9 +376,9 @@ export class TableReservationsService {
     }
 
     // Update the reservation
-    await this.tableReservationRepository.update(id, updateTableReservationDto);
+    await tableReservationRepository.update(id, updateTableReservationDto);
 
-    const updatedReservation = await this.tableReservationRepository.findOne({
+    const updatedReservation = await tableReservationRepository.findOne({
       where: { id },
       relations: ['table', 'user'],
     });
@@ -398,7 +398,8 @@ export class TableReservationsService {
   async cancel(id: number): Promise<TableReservationResponseDto> {
     this.logger.log(`Cancelling reservation with ID: ${id}`);
 
-    const reservation = await this.tableReservationRepository.findOne({
+    const tableReservationRepository = await this.tableReservationRepoPromise;
+    const reservation = await tableReservationRepository.findOne({
       where: { id },
     });
 
@@ -407,7 +408,7 @@ export class TableReservationsService {
     }
 
     reservation.status = ReservationStatus.CANCELLED;
-    await this.tableReservationRepository.save(reservation);
+    await tableReservationRepository.save(reservation);
 
     return new TableReservationResponseDto(reservation);
   }
@@ -420,7 +421,8 @@ export class TableReservationsService {
   async confirm(id: number): Promise<TableReservationResponseDto> {
     this.logger.log(`Confirming reservation with ID: ${id}`);
 
-    const reservation = await this.tableReservationRepository.findOne({
+    const tableReservationRepository = await this.tableReservationRepoPromise;
+    const reservation = await tableReservationRepository.findOne({
       where: { id },
     });
 
@@ -429,7 +431,7 @@ export class TableReservationsService {
     }
 
     reservation.status = ReservationStatus.CONFIRMED;
-    await this.tableReservationRepository.save(reservation);
+    await tableReservationRepository.save(reservation);
 
     return new TableReservationResponseDto(reservation);
   }
@@ -442,7 +444,8 @@ export class TableReservationsService {
   async complete(id: number): Promise<TableReservationResponseDto> {
     this.logger.log(`Completing reservation with ID: ${id}`);
 
-    const reservation = await this.tableReservationRepository.findOne({
+    const tableReservationRepository = await this.tableReservationRepoPromise;
+    const reservation = await tableReservationRepository.findOne({
       where: { id },
     });
 
@@ -451,7 +454,7 @@ export class TableReservationsService {
     }
 
     reservation.status = ReservationStatus.COMPLETED;
-    await this.tableReservationRepository.save(reservation);
+    await tableReservationRepository.save(reservation);
 
     return new TableReservationResponseDto(reservation);
   }
@@ -463,7 +466,8 @@ export class TableReservationsService {
   async remove(id: number): Promise<void> {
     this.logger.log(`Removing reservation with ID: ${id}`);
 
-    const reservation = await this.tableReservationRepository.findOne({
+    const tableReservationRepository = await this.tableReservationRepoPromise;
+    const reservation = await tableReservationRepository.findOne({
       where: { id },
     });
 
@@ -471,6 +475,6 @@ export class TableReservationsService {
       throw new NotFoundException(`Reservation with ID ${id} not found`);
     }
 
-    await this.tableReservationRepository.remove(reservation);
+    await tableReservationRepository.remove(reservation);
   }
 }

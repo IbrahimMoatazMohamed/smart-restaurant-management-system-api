@@ -4,6 +4,7 @@ import {
   UnauthorizedException,
   ForbiddenException,
   NotFoundException,
+  Scope,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
@@ -27,7 +28,7 @@ interface UserWithoutPassword {
   [key: string]: any;
 }
 
-@Injectable()
+@Injectable({ scope: Scope.REQUEST })
 export class AuthService {
   constructor(
     private usersService: UsersService,
@@ -97,10 +98,12 @@ export class AuthService {
   }
 
   async register(createUserDto: CreateUserDto) {
-    createUserDto.roleId = 0;
-    return await this.usersService
-      .create(createUserDto)
-      .then((user) => this.generateToken(user));
+    createUserDto.roleId = 1;
+    const createdUser = await this.usersService.create(createUserDto);
+    const userWithRole = await this.usersService.findOneWithPermissions(
+      createdUser.id,
+    );
+    return this.generateToken(userWithRole);
   }
 
   generateToken(user: UserWithoutPassword) {

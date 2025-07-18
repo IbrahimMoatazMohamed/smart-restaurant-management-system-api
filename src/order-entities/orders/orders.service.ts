@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Scope,
 } from '@nestjs/common';
 import { UsersService } from '../../users/users.service';
 import { MealsService } from '../../menu-entities/meals/meals.service';
@@ -11,8 +12,8 @@ import { TablesService } from '../../order-entities/tables/tables.service';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { handleError } from '../../utils/error-handler.util';
 import { validateEntityExists } from '../../utils/entity-validation.util';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository } from 'typeorm';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { Order, OrderStatus } from './entities/order.entity';
@@ -26,27 +27,29 @@ import {
  *
  * Handles order-related operations
  */
-@Injectable()
+@Injectable({ scope: Scope.REQUEST })
 export class OrdersService {
+  private readonly orderRepoPromise: Promise<Repository<Order>>;
+  private readonly orderMealItemRepoPromise: Promise<Repository<OrderMealItem>>;
+
   /**
    * Constructor
    *
-   * Initializes the orders repository, users service, meals service, items service, coupons service, and custom logger
+   * Initializes the tenant repository provider and related services
    */
   constructor(
-    @InjectRepository(Order)
-    private readonly ordersRepository: Repository<Order>,
-    @InjectRepository(OrderMealItem)
-    private readonly orderMealItemRepository: Repository<OrderMealItem>,
+    private readonly tenantRepoProvider: TenantRepositoryProvider,
     private readonly usersService: UsersService,
     private readonly mealsService: MealsService,
     private readonly itemsService: ItemsService,
     private readonly couponsService: CouponsService,
     private readonly tablesService: TablesService,
-    private readonly dataSource: DataSource,
     private readonly logger: CustomLoggerService,
   ) {
     this.logger.setContext('OrdersService');
+    this.orderRepoPromise = this.tenantRepoProvider.getRepository(Order);
+    this.orderMealItemRepoPromise =
+      this.tenantRepoProvider.getRepository(OrderMealItem);
   }
 
   /**
@@ -134,10 +137,6 @@ export class OrdersService {
    * @returns Created order
    */
   async create(createOrderDto: CreateOrderDto) {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
     try {
       await this.validateUserExists(createOrderDto.userId);
 
@@ -178,39 +177,41 @@ export class OrdersService {
         await this.validateTableExists(createOrderDto.tableId);
       }
 
-      const order = this.ordersRepository.create({
+      const orderRepo = await this.orderRepoPromise;
+      const order = orderRepo.create({
         userId: createOrderDto.userId,
         tableId: createOrderDto.tableId,
-        status: OrderStatus.PENDING,
         orderType: createOrderDto.orderType,
+        status: OrderStatus.PENDING,
         totalAmount: createOrderDto.totalAmount,
         specialInstructions: createOrderDto.specialInstructions,
         couponId: couponId,
       });
-
-      const savedOrder = await queryRunner.manager.save(order);
+      const savedOrder = await orderRepo.save(order);
 
       if (createOrderDto.mealItems && createOrderDto.mealItems.length > 0) {
+        const orderMealItemRepo = await this.orderMealItemRepoPromise;
         for (const mealItem of createOrderDto.mealItems) {
-          const orderMealItem = this.orderMealItemRepository.create({
+          const orderMealItem = orderMealItemRepo.create({
             orderId: savedOrder.id,
             mealId: mealItem.mealId,
             type: OrderItemType.MEAL,
             quantity: mealItem.quantity,
           });
-          await queryRunner.manager.save(orderMealItem);
+          await orderMealItemRepo.save(orderMealItem);
         }
       }
 
       if (createOrderDto.menuItems && createOrderDto.menuItems.length > 0) {
+        const orderMealItemRepo = await this.orderMealItemRepoPromise;
         for (const menuItem of createOrderDto.menuItems) {
-          const orderMealItem = this.orderMealItemRepository.create({
+          const orderMealItem = orderMealItemRepo.create({
             orderId: savedOrder.id,
             itemId: menuItem.itemId,
             type: OrderItemType.ITEM,
             quantity: menuItem.quantity,
           });
-          await queryRunner.manager.save(orderMealItem);
+          await orderMealItemRepo.save(orderMealItem);
         }
       }
 
@@ -280,15 +281,12 @@ export class OrdersService {
         }
       }
 
-      await queryRunner.commitTransaction();
-
       if (couponId) {
         await this.couponsService.incrementUsage(couponId);
       }
 
       return this.findOne(savedOrder.id);
     } catch (error: any) {
-      await queryRunner.rollbackTransaction();
       return handleError(
         error,
         [NotFoundException, BadRequestException],
@@ -299,25 +297,6 @@ export class OrdersService {
           });
         },
       );
-    } finally {
-      await queryRunner.release();
-    }
-  }
-
-  /**
-   * Find all orders
-   *
-   * @returns List of all orders
-   */
-  async findAll() {
-    try {
-      return await this.ordersRepository.find({
-        relations: ['table', 'orderMealItems.meal', 'orderMealItems.item'],
-      });
-    } catch (err) {
-      return handleError(err, [], 'Failed to retrieve orders', () => {
-        this.logger.logError(err, 'OrdersService.findAll');
-      });
     }
   }
 
@@ -329,9 +308,17 @@ export class OrdersService {
    */
   async findOne(id: number) {
     try {
-      const order = await this.ordersRepository.findOne({
+      const orderRepo = await this.orderRepoPromise;
+      const order = await orderRepo.findOne({
         where: { id },
-        relations: ['table', 'orderMealItems.meal', 'orderMealItems.item'],
+        relations: [
+          'user',
+          'table',
+          'coupon',
+          'orderMealItems',
+          'orderMealItems.meal',
+          'orderMealItems.item',
+        ],
       });
 
       if (!order) {
@@ -359,11 +346,8 @@ export class OrdersService {
    * @returns Updated order
    */
   async update(id: number, updateOrderDto: UpdateOrderDto) {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
     try {
+      const orderMealItemRepository = await this.orderMealItemRepoPromise;
       const order = await this.findOne(id);
 
       if (!order) {
@@ -402,7 +386,7 @@ export class OrdersService {
         if (mealIds.length > 0) {
           await this.validateMealsExist(mealIds);
 
-          await this.orderMealItemRepository.delete({
+          await orderMealItemRepository.delete({
             orderId: order.id,
             type: OrderItemType.MEAL,
           });
@@ -414,7 +398,7 @@ export class OrdersService {
             orderMealItem.type = OrderItemType.MEAL;
             orderMealItem.quantity = mealItem.quantity;
 
-            await this.orderMealItemRepository.save(orderMealItem);
+            await orderMealItemRepository.save(orderMealItem);
           }
         }
       }
@@ -423,7 +407,7 @@ export class OrdersService {
         const itemIds = this.extractItemIds(updateOrderDto.menuItems);
         if (itemIds.length > 0) {
           await this.validateItemsExist(itemIds);
-          await this.orderMealItemRepository.delete({
+          await orderMealItemRepository.delete({
             orderId: order.id,
             type: OrderItemType.ITEM,
           });
@@ -435,7 +419,7 @@ export class OrdersService {
             orderMealItem.type = OrderItemType.ITEM;
             orderMealItem.quantity = menuItem.quantity;
 
-            await this.orderMealItemRepository.save(orderMealItem);
+            await orderMealItemRepository.save(orderMealItem);
           }
         }
       }
@@ -456,7 +440,8 @@ export class OrdersService {
         order.specialInstructions = updateOrderDto.specialInstructions;
       }
 
-      await this.ordersRepository.update(order.id, {
+      const ordersRepository = await this.orderRepoPromise;
+      await ordersRepository.update(order.id, {
         status: order.status,
         orderType: order.orderType,
         totalAmount: order.totalAmount,
@@ -466,12 +451,8 @@ export class OrdersService {
         couponId: order.couponId,
       });
 
-      await queryRunner.commitTransaction();
-
       return this.findOne(id);
     } catch (err) {
-      await queryRunner.rollbackTransaction();
-
       return handleError(
         err,
         [BadRequestException, NotFoundException],
@@ -483,8 +464,6 @@ export class OrdersService {
           });
         },
       );
-    } finally {
-      await queryRunner.release();
     }
   }
 
@@ -501,7 +480,8 @@ export class OrdersService {
         throw new NotFoundException(`Order with ID ${id} not found`);
       }
 
-      await this.ordersRepository.softDelete(id);
+      const orderRepo = await this.orderRepoPromise;
+      await orderRepo.softDelete(id);
     } catch (err) {
       return handleError(
         err,
@@ -521,7 +501,8 @@ export class OrdersService {
    */
   async restore(id: number): Promise<Order> {
     try {
-      const order = await this.ordersRepository.findOne({
+      const orderRepo = await this.orderRepoPromise;
+      const order = await orderRepo.findOne({
         where: { id },
         withDeleted: true,
       });
@@ -534,7 +515,7 @@ export class OrdersService {
         throw new BadRequestException(`Order with ID ${id} is not deleted`);
       }
 
-      await this.ordersRepository.restore(id);
+      await orderRepo.restore(id);
       return this.findOne(id);
     } catch (err) {
       return handleError(
@@ -549,6 +530,31 @@ export class OrdersService {
   }
 
   /**
+   * Find all orders
+   *
+   * @returns List of all orders
+   */
+  async findAll(): Promise<Order[]> {
+    try {
+      const orderRepo = await this.orderRepoPromise;
+      return await orderRepo.find({
+        relations: [
+          'user',
+          'table',
+          'coupon',
+          'orderMealItems',
+          'orderMealItems.meal',
+          'orderMealItems.item',
+        ],
+      });
+    } catch (err) {
+      return handleError(err, [], 'Failed to retrieve orders', () => {
+        this.logger.logError(err, 'OrdersService.findAll');
+      });
+    }
+  }
+
+  /**
    * Find all orders including deleted ones
    *
    * @param includeDeleted Whether to include soft-deleted orders
@@ -556,7 +562,8 @@ export class OrdersService {
    */
   async findAllWithDeleted(includeDeleted: boolean = false): Promise<Order[]> {
     try {
-      return await this.ordersRepository.find({
+      const orderRepo = await this.orderRepoPromise;
+      return await orderRepo.find({
         relations: [
           'user',
           'table',
@@ -584,7 +591,8 @@ export class OrdersService {
     try {
       await this.validateUserExists(userId);
 
-      return await this.ordersRepository.find({
+      const orderRepo = await this.orderRepoPromise;
+      return await orderRepo.find({
         where: { userId },
         relations: [
           'user',

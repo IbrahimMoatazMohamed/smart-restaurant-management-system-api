@@ -41,7 +41,8 @@ import {
  * update, and deletion of relationships between menu items and their ingredients.
  */
 @ApiTags('item-ingredients')
-@Controller('item-ingredients')
+@Controller(':tenantId/item-ingredients')
+@ApiParam({ name: 'tenantId', description: 'Tenant ID' })
 export class ItemIngredientsController {
   /**
    * Constructor

@@ -15,6 +15,7 @@ import {
   ApiConflictResponse,
   ApiBadRequestResponse,
   ApiForbiddenResponse,
+  ApiParam,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -25,7 +26,12 @@ import { UserRegistrationDto } from './dto/user-registration';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 
 @ApiTags('auth')
-@Controller('auth')
+@ApiParam({
+  name: 'tenantId',
+  required: true,
+  description: 'Tenant identifier (e.g. restaurant1)',
+})
+@Controller(':tenantId/auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
@@ -90,7 +96,7 @@ export class AuthController {
     this.logger.log(`Creating new user with email: ${createUserDto.email}`);
 
     const user = new CreateUserDto();
-    user.roleId = 0;
+    user.roleId = 1;
     user.name = createUserDto.name;
     user.email = createUserDto.email;
     user.country = createUserDto.country;

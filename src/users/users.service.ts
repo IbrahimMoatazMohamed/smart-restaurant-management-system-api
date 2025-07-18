@@ -3,9 +3,10 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
+  Scope,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { TenantRepositoryProvider } from '../tenant/tenant-repository.provider';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Users } from './entities/users.entity';
@@ -20,19 +21,21 @@ import { plainToInstance } from 'class-transformer';
  *
  * Handles user-related operations
  */
-@Injectable()
+@Injectable({ scope: Scope.REQUEST })
 export class UsersService {
   /**
    * Constructor
    *
    * Initializes the users repository and custom logger
    */
+  private usersRepoPromise: Promise<Repository<Users>>;
+
   constructor(
-    @InjectRepository(Users)
-    private readonly usersRepository: Repository<Users>,
+    private readonly tenantRepositoryProvider: TenantRepositoryProvider,
     private readonly logger: CustomLoggerService,
   ) {
     this.logger.setContext('UsersService');
+    this.usersRepoPromise = this.tenantRepositoryProvider.getRepository(Users);
   }
 
   /**
@@ -48,7 +51,8 @@ export class UsersService {
   ): Promise<void> {
     if (!email) return;
 
-    const existingUser = await this.usersRepository.findOne({
+    const usersRepository = await this.usersRepoPromise;
+    const existingUser = await usersRepository.findOne({
       where: { email },
     });
 
@@ -70,7 +74,8 @@ export class UsersService {
   ): Promise<void> {
     if (!phone) return;
 
-    const existingUser = await this.usersRepository.findOne({
+    const usersRepository = await this.usersRepoPromise;
+    const existingUser = await usersRepository.findOne({
       where: { phone },
     });
 
@@ -92,12 +97,13 @@ export class UsersService {
       await this.checkIfPhoneExists(createUserDto.phone);
 
       const hashedPassword = await hashPassword(createUserDto.password);
+      const usersRepository = await this.usersRepoPromise;
 
-      const user = this.usersRepository.create({
+      const user = usersRepository.create({
         ...createUserDto,
         password: hashedPassword,
       });
-      const savedUser = await this.usersRepository.save(user);
+      const savedUser = await usersRepository.save(user);
       return plainToInstance(UserResponseDto, savedUser);
     } catch (err) {
       return handleError(
@@ -120,7 +126,8 @@ export class UsersService {
    */
   async findAll(): Promise<UserResponseDto[]> {
     try {
-      const users = await this.usersRepository.find({
+      const usersRepository = await this.usersRepoPromise;
+      const users = await usersRepository.find({
         relations: ['role'],
       });
       return plainToInstance(UserResponseDto, users);
@@ -139,7 +146,8 @@ export class UsersService {
    */
   async findOne(id: number) {
     try {
-      const user = await this.usersRepository.findOne({
+      const usersRepository = await this.usersRepoPromise;
+      const user = await usersRepository.findOne({
         where: { id },
         relations: ['role'],
       });
@@ -167,7 +175,8 @@ export class UsersService {
    */
   async findOneWithPermissions(id: number) {
     try {
-      const user = await this.usersRepository.findOne({
+      const usersRepository = await this.usersRepoPromise;
+      const user = await usersRepository.findOne({
         where: { id },
         relations: ['role'],
       });
@@ -197,7 +206,8 @@ export class UsersService {
    */
   async findByEmail(email: string) {
     try {
-      const user = await this.usersRepository.findOne({
+      const usersRepository = await this.usersRepoPromise;
+      const user = await usersRepository.findOne({
         where: { email: email.toLowerCase() },
         select: [
           'id',
@@ -246,13 +256,14 @@ export class UsersService {
       }
 
       // Get the actual entity instead of the DTO
-      const userEntity = await this.usersRepository.findOne({ where: { id } });
+      const usersRepository = await this.usersRepoPromise;
+      const userEntity = await usersRepository.findOne({ where: { id } });
       if (!userEntity) {
         throw new NotFoundException(`User with ID ${id} not found`);
       }
 
       Object.assign(userEntity, updateUserDto);
-      const savedUser = await this.usersRepository.save(userEntity);
+      const savedUser = await usersRepository.save(userEntity);
       return plainToInstance(UserResponseDto, savedUser);
     } catch (err) {
       return handleError(
@@ -276,11 +287,12 @@ export class UsersService {
    */
   async remove(id: number): Promise<void> {
     try {
-      const user = await this.usersRepository.findOne({ where: { id } });
+      const usersRepository = await this.usersRepoPromise;
+      const user = await usersRepository.findOne({ where: { id } });
       if (!user) {
         throw new NotFoundException(`User with ID ${id} not found`);
       }
-      await this.usersRepository.remove(user);
+      await usersRepository.remove(user);
     } catch (err) {
       return handleError(
         err,
@@ -306,13 +318,14 @@ export class UsersService {
   ): Promise<{ imageUrl: string }> {
     try {
       // Get the actual entity instead of the DTO
-      const userEntity = await this.usersRepository.findOne({ where: { id } });
+      const usersRepository = await this.usersRepoPromise;
+      const userEntity = await usersRepository.findOne({ where: { id } });
       if (!userEntity) {
         throw new NotFoundException(`User with ID ${id} not found`);
       }
 
       userEntity.imageUrl = imageUrl;
-      await this.usersRepository.save(userEntity);
+      await usersRepository.save(userEntity);
 
       return { imageUrl };
     } catch (err) {

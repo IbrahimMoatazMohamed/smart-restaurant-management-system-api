@@ -1,29 +1,22 @@
 import { Module } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Users } from './entities/users.entity';
 import { FileUploadModule } from '../file-upload/file-upload.module';
 import { RolesModule } from '../roles/roles.module';
 import { LoggerModule } from '../logger/logger.module';
-import { JwtModule } from '@nestjs/jwt';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { SuperAdminTokenGuard } from '../auth/guards/super-admin-token.guard';
+import { TenantModule } from '../tenant/tenant.module';
+import { forwardRef } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Users]),
     FileUploadModule,
-    RolesModule,
+    forwardRef(() => RolesModule),
     LoggerModule,
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET') || 'your-secret-key',
-        signOptions: { expiresIn: '1d' },
-      }),
-    }),
+    TenantModule,
+    forwardRef(() => AuthModule),
     ConfigModule,
   ],
   controllers: [UsersController],

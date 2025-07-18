@@ -3,35 +3,39 @@ import {
   ConflictException,
   NotFoundException,
   BadRequestException,
-  Inject,
-  forwardRef,
+  Scope,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not, IsNull } from 'typeorm';
 import { Item, ItemStatus } from './entities/item.entity';
 import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { MenuCategoriesService } from '../menu-categories/menu-categories.service';
-import { ItemIngredientsService } from '../item-ingredients/item-ingredients.service';
+import { ItemIngredient } from '../item-ingredients/entities/item-ingredient.entity';
 import { IngredientsService } from '../ingredients/ingredients.service';
 import { handleDuplicateEntryError } from '../../utils/duplicate-entry-handler.util';
 import { handleError } from '../../utils/error-handler.util';
 import { validateEntityExists } from '../../utils/entity-validation.util';
 import { UpdateQuantityDto } from '../ingredients/dto/update-quantity.dto';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 
-@Injectable()
+@Injectable({ scope: Scope.REQUEST })
 export class ItemsService {
+  private readonly itemsRepoPromise: Promise<Repository<Item>>;
+  private readonly itemIngredientsRepoPromise: Promise<
+    Repository<ItemIngredient>
+  >;
+
   constructor(
-    @InjectRepository(Item)
-    private readonly itemsRepository: Repository<Item>,
-    @Inject(forwardRef(() => ItemIngredientsService))
-    private readonly itemIngredientsService: ItemIngredientsService,
+    private readonly tenantRepoProvider: TenantRepositoryProvider,
+    private readonly logger: CustomLoggerService,
     private readonly menuCategoriesService: MenuCategoriesService,
     private readonly ingredientsService: IngredientsService,
-    private readonly logger: CustomLoggerService,
   ) {
     this.logger.setContext('ItemsService');
+    this.itemsRepoPromise = this.tenantRepoProvider.getRepository(Item);
+    this.itemIngredientsRepoPromise =
+      this.tenantRepoProvider.getRepository(ItemIngredient);
   }
 
   /**
@@ -63,8 +67,9 @@ export class ItemsService {
       }
 
       // Create and save the item
-      const item = this.itemsRepository.create(createItemDto);
-      const savedItem = await this.itemsRepository.save(item);
+      const itemsRepository = await this.itemsRepoPromise;
+      const item = itemsRepository.create(createItemDto);
+      const savedItem = await itemsRepository.save(item);
 
       // Create and save item ingredients
       if (createItemDto.ingredients && createItemDto.ingredients.length > 0) {
@@ -75,7 +80,8 @@ export class ItemsService {
           measurement: ingredient.measurement,
         }));
 
-        await this.itemIngredientsService.upsert(itemIngredients);
+        const itemIngredientsRepository = await this.itemIngredientsRepoPromise;
+        await itemIngredientsRepository.save(itemIngredients);
         this.logger.log(
           `Added ${itemIngredients.length} ingredients to item ID: ${savedItem.id}`,
         );
@@ -111,18 +117,22 @@ export class ItemsService {
    */
   async findAll(includeDeleted: boolean = false) {
     try {
-      const items = await this.itemsRepository.find({
+      const itemsRepository = await this.itemsRepoPromise;
+      const items = await itemsRepository.find({
         withDeleted: includeDeleted,
         relations: ['category'],
       });
+
       this.logger.log(
         `Found ${items.length} items${includeDeleted ? ' including deleted' : ''}`,
       );
       return items;
     } catch (error) {
-      return handleError(error, [], 'Failed to retrieve items', () =>
-        this.logger.logError(error, 'ItemsService.findAll', { includeDeleted }),
-      );
+      return handleError(error, [], 'Failed to retrieve items', () => {
+        this.logger.logError(error, 'ItemsService.findAll', {
+          includeDeleted,
+        });
+      });
     }
   }
 
@@ -133,7 +143,8 @@ export class ItemsService {
    */
   async findOne(id: number) {
     try {
-      const item = await this.itemsRepository.findOne({
+      const itemsRepository = await this.itemsRepoPromise;
+      const item = await itemsRepository.findOne({
         where: { id },
         relations: ['category'],
       });
@@ -192,10 +203,13 @@ export class ItemsService {
         item.description = updateItemDto.description || '';
       }
 
-      await this.itemsRepository.save(item);
+      const itemsRepository = await this.itemsRepoPromise;
+      await itemsRepository.save(item);
+
+      const itemIngredientsRepository = await this.itemIngredientsRepoPromise;
 
       if (updateItemDto.ingredients !== undefined) {
-        const existingIngredients = await this.itemIngredientsService.find({
+        const existingIngredients = await itemIngredientsRepository.find({
           where: { item_id: id },
         });
 
@@ -214,14 +228,14 @@ export class ItemsService {
           .map((i) => i.id);
 
         if (ingredientsToRemove.length) {
-          await this.itemIngredientsService.delete(ingredientsToRemove);
+          await itemIngredientsRepository.delete(ingredientsToRemove);
           this.logger.log(
             `Removed ${ingredientsToRemove.length} ingredients from item ID: ${id}`,
           );
         }
 
         if (newIngredients.length > 0) {
-          await this.itemIngredientsService.upsert(newIngredients);
+          await itemIngredientsRepository.save(newIngredients);
           this.logger.log(
             `Updated ${newIngredients.length} ingredients for item ID: ${id}`,
           );
@@ -263,7 +277,8 @@ export class ItemsService {
    */
   async findByStatus(status: string) {
     try {
-      const items = await this.itemsRepository.find({
+      const itemsRepository = await this.itemsRepoPromise;
+      const items = await itemsRepository.find({
         where: { status: status as ItemStatus },
         relations: ['category'],
       });
@@ -287,6 +302,7 @@ export class ItemsService {
    * @returns Restored item
    */
   async restore(id: number): Promise<Item> {
+    const itemsRepository = await this.itemsRepoPromise;
     try {
       // Validate that id is a valid number
       if (!id || isNaN(id)) {
@@ -296,7 +312,7 @@ export class ItemsService {
 
       this.logger.log(`Restoring soft-deleted item with ID: ${id}`);
 
-      const deletedItem = await this.itemsRepository.findOne({
+      const deletedItem = await itemsRepository.findOne({
         where: { id },
         withDeleted: true,
         relations: ['category'],
@@ -319,11 +335,11 @@ export class ItemsService {
         );
       }
 
-      await this.itemsRepository.restore(id);
+      await itemsRepository.restore(id);
 
       const item = await this.findOne(id);
 
-      await this.itemsRepository.save(item);
+      await itemsRepository.save(item);
       this.logger.log(`Item with ID ${id} restored`);
 
       return this.findOne(id);
@@ -348,7 +364,8 @@ export class ItemsService {
     try {
       this.logger.log('Finding all soft-deleted items');
 
-      const items = await this.itemsRepository.find({
+      const itemsRepository = await this.itemsRepoPromise;
+      const items = await itemsRepository.find({
         withDeleted: true,
         relations: ['category'],
         where: {
@@ -372,7 +389,8 @@ export class ItemsService {
    */
   async findByDeletedStatus(deleted: boolean): Promise<Item[]> {
     try {
-      const items = await this.itemsRepository.find({
+      const itemsRepository = await this.itemsRepoPromise;
+      const items = await itemsRepository.find({
         withDeleted: true,
         where: deleted ? { deletedAt: Not(IsNull()) } : { deletedAt: IsNull() },
         relations: ['category'],
@@ -411,11 +429,12 @@ export class ItemsService {
 
       await this.findOne(id);
 
-      await this.itemsRepository.softDelete(id);
+      const itemsRepository = await this.itemsRepoPromise;
+      await itemsRepository.softDelete(id);
 
       this.logger.log(`Item with ID ${id} soft deleted`);
 
-      const softDeletedItem = await this.itemsRepository.findOne({
+      const softDeletedItem = await itemsRepository.findOne({
         where: { id },
         withDeleted: true,
       });
@@ -470,8 +489,10 @@ export class ItemsService {
       }
 
       // Get all ingredients for this item
-      const itemIngredients =
-        await this.itemIngredientsService.findByItemId(itemId);
+      const itemIngredientsRepository = await this.itemIngredientsRepoPromise;
+      const itemIngredients = await itemIngredientsRepository.findBy({
+        item_id: itemId,
+      });
       if (!itemIngredients || itemIngredients.length === 0) {
         this.logger.log(`Item ID ${itemId} has no ingredients to process`);
         return { success: true, lowStockIngredients: [] };

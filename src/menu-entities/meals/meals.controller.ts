@@ -49,8 +49,9 @@ import {
  * Handles meal-related operations
  */
 @ApiTags('meals')
-@Controller('meals')
+@Controller(':tenantId/meals')
 @UseInterceptors(ClassSerializerInterceptor)
+@ApiParam({ name: 'tenantId', description: 'Tenant ID' })
 export class MealsController {
   /**
    * Constructor

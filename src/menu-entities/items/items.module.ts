@@ -1,17 +1,18 @@
 import { Module, forwardRef } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { ItemsController } from './items.controller';
 import { ItemsService } from './items.service';
-import { Item } from './entities/item.entity';
 import { LoggerModule } from '../../logger/logger.module';
 import { MenuCategoriesModule } from '../menu-categories/menu-categories.module';
 import { ItemIngredientsModule } from '../item-ingredients/item-ingredients.module';
 import { IngredientsModule } from '../ingredients/ingredients.module';
 import { FileUploadModule } from '../../file-upload/file-upload.module';
+import { TenantModule } from '../../tenant/tenant.module';
+import { AuthModule } from '../../auth/auth.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Item]),
+    TenantModule,
+    AuthModule,
     LoggerModule,
     MenuCategoriesModule,
     FileUploadModule,

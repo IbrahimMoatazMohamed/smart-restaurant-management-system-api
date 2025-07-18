@@ -3,9 +3,10 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
+  Scope,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Not, Repository, MoreThanOrEqual } from 'typeorm';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 import { CreateTableDto } from './dto/create-table.dto';
 import { UpdateTableDto } from './dto/update-table.dto';
 import { Table } from './entities/table.entity';
@@ -17,19 +18,23 @@ import { handleError } from '../../utils/error-handler.util';
  *
  * Handles table-related operations
  */
-@Injectable()
+@Injectable({
+  scope: Scope.REQUEST,
+})
 export class TablesService {
   /**
    * Constructor
    *
    * Initializes the tables repository, and custom logger
    */
+  private tableRepoPromise: Promise<Repository<Table>>;
+
   constructor(
-    @InjectRepository(Table)
-    private readonly tablesRepository: Repository<Table>,
+    private readonly tenantRepoProvider: TenantRepositoryProvider,
     private readonly logger: CustomLoggerService,
   ) {
     this.logger.setContext('TablesService');
+    this.tableRepoPromise = this.tenantRepoProvider.getRepository(Table);
   }
 
   /**
@@ -40,7 +45,8 @@ export class TablesService {
    * @throws ConflictException if table with the name already exists
    */
   private async checkTableNameExists(tableName: string, excludeId?: number) {
-    const existingTable = await this.tablesRepository.findOne({
+    const tablesRepository = await this.tableRepoPromise;
+    const existingTable = await tablesRepository.findOne({
       where: { tableName },
       ...(excludeId && { where: { tableName, id: Not(excludeId) } }),
     });
@@ -64,8 +70,9 @@ export class TablesService {
       await this.checkTableNameExists(createTableDto.tableName);
 
       // Create and save the table
-      const table = this.tablesRepository.create(createTableDto);
-      return await this.tablesRepository.save(table);
+      const tablesRepository = await this.tableRepoPromise;
+      const table = tablesRepository.create(createTableDto);
+      return await tablesRepository.save(table);
     } catch (err) {
       return handleError(
         err,
@@ -87,7 +94,8 @@ export class TablesService {
    */
   async findAll() {
     try {
-      return await this.tablesRepository.find();
+      const tablesRepository = await this.tableRepoPromise;
+      return await tablesRepository.find();
     } catch (err) {
       return handleError(err, [], 'Failed to retrieve tables', () => {
         this.logger.logError(err, 'TablesService.findAll');
@@ -109,7 +117,8 @@ export class TablesService {
         `Finding available tables for ${date} at ${time} for party of ${partySize}`,
       );
 
-      const tables = await this.tablesRepository.find({
+      const tablesRepository = await this.tableRepoPromise;
+      const tables = await tablesRepository.find({
         where: {
           capacity: MoreThanOrEqual(partySize),
         },
@@ -135,7 +144,8 @@ export class TablesService {
    */
   async findOne(id: number) {
     try {
-      const table = await this.tablesRepository.findOne({
+      const tablesRepository = await this.tableRepoPromise;
+      const table = await tablesRepository.findOne({
         where: { id },
       });
 
@@ -184,7 +194,8 @@ export class TablesService {
       // Apply updates
       Object.assign(table, updatedFields);
 
-      return await this.tablesRepository.save(table);
+      const tablesRepository = await this.tableRepoPromise;
+      return await tablesRepository.save(table);
     } catch (err) {
       return handleError(
         err,
@@ -218,7 +229,8 @@ export class TablesService {
       //   );
       // }
 
-      await this.tablesRepository.delete(id);
+      const tablesRepository = await this.tableRepoPromise;
+      await tablesRepository.delete(id);
     } catch (err) {
       return handleError(
         err,

@@ -56,7 +56,12 @@ import Gender from './types/gender';
  * Handles user-related operations
  */
 @ApiTags('users')
-@Controller('users')
+@ApiParam({
+  name: 'tenantId',
+  required: true,
+  description: 'Tenant identifier (e.g. restaurant1)',
+})
+@Controller(':tenantId/users')
 export class UsersController {
   /**
    * Constructor

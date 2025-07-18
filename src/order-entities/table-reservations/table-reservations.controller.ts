@@ -35,7 +35,12 @@ import { ApiBearerAuth } from '@nestjs/swagger';
 import { MeOrAdminOrAuthorized } from '../../auth/decorators/me-or-admin.decorator';
 
 @ApiTags('table-reservations')
-@Controller('table-reservations')
+@ApiParam({
+  name: 'tenantId',
+  required: true,
+  description: 'Tenant identifier (e.g. restaurant1)',
+})
+@Controller(':tenantId/table-reservations')
 export class TableReservationsController {
   constructor(
     private readonly tableReservationsService: TableReservationsService,

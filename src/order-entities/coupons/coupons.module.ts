@@ -1,12 +1,11 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { CouponsService } from './coupons.service';
 import { CouponsController } from './coupons.controller';
-import { Coupon } from './entities/coupon.entity';
 import { LoggerModule } from '../../logger/logger.module';
+import { TenantModule } from '../../tenant/tenant.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Coupon]), LoggerModule],
+  imports: [LoggerModule, TenantModule],
   controllers: [CouponsController],
   providers: [CouponsService],
   exports: [CouponsService],

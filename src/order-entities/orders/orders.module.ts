@@ -1,18 +1,18 @@
 import { Module } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Order } from './entities/order.entity';
-import { OrderMealItem } from './entities/order-meal-item.entity';
 import { UsersModule } from '../../users/users.module';
 import { MealsModule } from '../../menu-entities/meals/meals.module';
 import { ItemsModule } from '../../menu-entities/items/items.module';
-import { CouponsModule } from '../../order-entities/coupons/coupons.module';
-import { TablesModule } from '../../order-entities/tables/tables.module';
+import { CouponsModule } from '../coupons/coupons.module';
+import { TablesModule } from '../tables/tables.module';
+import { TenantModule } from '../../tenant/tenant.module';
+import { LoggerModule } from '../../logger/logger.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Order, OrderMealItem]),
+    TenantModule,
+    LoggerModule,
     UsersModule,
     MealsModule,
     ItemsModule,

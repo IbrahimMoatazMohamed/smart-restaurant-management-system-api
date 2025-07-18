@@ -43,7 +43,12 @@ import {
  * Handles menu category-related operations
  */
 @ApiTags('menu-categories')
-@Controller('menu-categories')
+@ApiParam({
+  name: 'tenantId',
+  required: true,
+  description: 'Tenant identifier (e.g. restaurant1)',
+})
+@Controller(':tenantId/menu-categories')
 @UseInterceptors(ClassSerializerInterceptor)
 export class MenuCategoriesController {
   /**

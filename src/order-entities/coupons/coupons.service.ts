@@ -3,14 +3,16 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
+  Scope,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+
 import { Repository, MoreThanOrEqual } from 'typeorm';
 import { CreateCouponDto } from './dto/create-coupon.dto';
 import { UpdateCouponDto } from './dto/update-coupon.dto';
 import { Coupon } from './entities/coupon.entity';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { handleError } from '../../utils/error-handler.util';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 import { CouponResponseDto } from './dto/coupon-response.dto';
 import { CouponWithRelationsResponseDto } from './dto/coupon-with-relations-response.dto';
 import { CouponValidationResponseDto } from './dto/coupon-validation-response.dto';
@@ -22,19 +24,23 @@ import { CouponType } from './entities/coupon-type.enum';
  *
  * Handles coupon-related operations
  */
-@Injectable()
+@Injectable({
+  scope: Scope.REQUEST,
+})
 export class CouponsService {
   /**
    * Constructor
    *
    * Initializes the coupons repository and custom logger
    */
+  private couponRepoPromise: Promise<Repository<Coupon>>;
+
   constructor(
-    @InjectRepository(Coupon)
-    private readonly couponsRepository: Repository<Coupon>,
+    private readonly tenantRepoProvider: TenantRepositoryProvider,
     private readonly logger: CustomLoggerService,
   ) {
     this.logger.setContext('CouponsService');
+    this.couponRepoPromise = this.tenantRepoProvider.getRepository(Coupon);
   }
 
   /**
@@ -48,7 +54,8 @@ export class CouponsService {
     code: string,
     excludeId?: number,
   ): Promise<void> {
-    const existingCoupon = await this.couponsRepository.findOne({
+    const couponsRepository = await this.couponRepoPromise;
+    const existingCoupon = await couponsRepository.findOne({
       where: { code },
     });
 
@@ -84,12 +91,13 @@ export class CouponsService {
 
       this.validateCouponValue(createCouponDto.type, createCouponDto.value);
 
-      const coupon = this.couponsRepository.create({
+      const couponsRepository = await this.couponRepoPromise;
+      const coupon = couponsRepository.create({
         ...createCouponDto,
         usageCount: 0,
       });
 
-      const savedCoupon = await this.couponsRepository.save(coupon);
+      const savedCoupon = await couponsRepository.save(coupon);
       return savedCoupon;
     } catch (err) {
       return handleError(
@@ -130,7 +138,8 @@ export class CouponsService {
       // Convert withDeleted to boolean
       const includeDeleted = withDeleted === true;
 
-      const coupons = await this.couponsRepository.find({
+      const couponsRepository = await this.couponRepoPromise;
+      const coupons = await couponsRepository.find({
         where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
         withDeleted: includeDeleted,
       });
@@ -146,8 +155,8 @@ export class CouponsService {
     } catch (err) {
       return handleError(err, [], 'Failed to retrieve coupons', () => {
         this.logger.logError(err, 'CouponsService.findAll', {
-          withDeleted: withDeleted,
-          valid: valid,
+          withDeleted,
+          valid,
         });
       });
     }
@@ -165,7 +174,8 @@ export class CouponsService {
     includeRelations = false,
   ): Promise<CouponResponseDto | CouponWithRelationsResponseDto> {
     try {
-      const coupon = await this.couponsRepository.findOne({
+      const couponsRepository = await this.couponRepoPromise;
+      const coupon = await couponsRepository.findOne({
         where: { id },
         relations: includeRelations ? ['orders'] : [],
       });
@@ -181,7 +191,10 @@ export class CouponsService {
         [NotFoundException],
         `Failed to retrieve coupon with ID ${id}`,
         () => {
-          this.logger.logError(err, 'CouponsService.findOne', { id });
+          this.logger.logError(err, 'CouponsService.findOne', {
+            id,
+            includeRelations,
+          });
         },
       );
     }
@@ -195,12 +208,13 @@ export class CouponsService {
    */
   async findByCode(code: string): Promise<CouponResponseDto> {
     try {
-      const coupon = await this.couponsRepository.findOne({
+      const couponsRepository = await this.couponRepoPromise;
+      const coupon = await couponsRepository.findOne({
         where: { code },
       });
 
       if (!coupon) {
-        throw new NotFoundException(`Coupon with code '${code}' not found`);
+        throw new NotFoundException(`Coupon with code ${code} not found`);
       }
 
       return coupon;
@@ -228,29 +242,41 @@ export class CouponsService {
     orderAmount: number,
   ): Promise<CouponValidationResponseDto> {
     try {
-      const coupon = await this.couponsRepository.findOne({
+      const couponsRepository = await this.couponRepoPromise;
+      const coupon = await couponsRepository.findOne({
         where: { code },
       });
 
       if (!coupon) {
-        throw new NotFoundException(`Coupon with code '${code}' not found`);
+        throw new NotFoundException(`Coupon with code ${code} not found`);
       }
 
       const now = new Date();
-      if (coupon.expiryDate && isAfter(new Date(), coupon.expiryDate)) {
+
+      // Check if coupon is expired
+      if (coupon.expiryDate && isAfter(now, coupon.expiryDate)) {
         return {
           valid: false,
-          message: `Coupon '${code}' has expired`,
+          message: 'Coupon has expired',
+          coupon: coupon,
         };
       }
 
-      if (coupon.startDate && coupon.startDate > now) {
-        throw new BadRequestException(`Coupon '${code}' is not yet active`);
+      // Check if coupon has a start date and is not yet valid
+      if (coupon.startDate && isAfter(coupon.startDate, now)) {
+        return {
+          valid: false,
+          message: 'Coupon is not yet valid',
+          coupon: coupon,
+        };
       }
+
+      // Check if coupon has reached its usage limit
       if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) {
         return {
           valid: false,
-          message: `Coupon '${code}' has reached its usage limit`,
+          message: 'Coupon has reached its usage limit',
+          coupon: coupon,
         };
       }
 
@@ -260,43 +286,32 @@ export class CouponsService {
       ) {
         return {
           valid: false,
-          message: `Order amount does not meet the minimum requirement of $${coupon.minimumOrderAmount} for coupon '${code}'`,
-        };
-      }
-
-      if (coupon.type === CouponType.PERCENTAGE && coupon.value > 100) {
-        return {
-          valid: false,
-          message: `Coupon '${code}' has an invalid percentage value. Percentage cannot exceed 100%`,
+          message: `Order amount must be at least ${coupon.minimumOrderAmount} to use this coupon`,
+          coupon: coupon,
         };
       }
 
       let discountAmount = 0;
+      if (coupon.type === CouponType.FIXED) {
+        discountAmount = coupon.value;
+      } else if (coupon.type === CouponType.PERCENTAGE) {
+        discountAmount = (orderAmount * coupon.value) / 100;
 
-      switch (coupon.type) {
-        case CouponType.PERCENTAGE:
-          discountAmount = (orderAmount * coupon.value) / 100;
-          if (
-            coupon.maximumDiscountAmount &&
-            discountAmount > coupon.maximumDiscountAmount
-          ) {
-            discountAmount = coupon.maximumDiscountAmount;
-          }
-          break;
-        case CouponType.FIXED:
-          discountAmount = coupon.value;
-          break;
-        case CouponType.BOGO:
-          discountAmount = 0;
-          break;
-        default:
-          discountAmount = 0;
+        if (
+          coupon.maximumDiscountAmount &&
+          discountAmount > coupon.maximumDiscountAmount
+        ) {
+          discountAmount = coupon.maximumDiscountAmount;
+        }
       }
+
+      discountAmount = Math.min(discountAmount, orderAmount);
+
       return {
         valid: true,
+        message: 'Coupon is valid',
         coupon,
         discountAmount,
-        message: `Coupon '${code}' applied successfully`,
       };
     } catch (err) {
       this.logger.logError(err, 'CouponsService.validateCoupon', {
@@ -352,7 +367,8 @@ export class CouponsService {
 
       this.validateCouponValue(couponType, couponValue);
 
-      const updatedCoupon = await this.couponsRepository.preload({
+      const couponsRepository = await this.couponRepoPromise;
+      const updatedCoupon = await couponsRepository.preload({
         id,
         ...updateCouponDto,
       });
@@ -361,7 +377,7 @@ export class CouponsService {
         throw new NotFoundException(`Coupon with ID ${id} not found`);
       }
 
-      const savedCoupon = await this.couponsRepository.save(updatedCoupon);
+      const savedCoupon = await couponsRepository.save(updatedCoupon);
       return savedCoupon;
     } catch (err) {
       return handleError(
@@ -386,7 +402,8 @@ export class CouponsService {
    */
   async incrementUsage(id: number): Promise<CouponResponseDto> {
     try {
-      const coupon = await this.couponsRepository.findOne({
+      const couponsRepository = await this.couponRepoPromise;
+      const coupon = await couponsRepository.findOne({
         where: { id },
       });
 
@@ -395,7 +412,7 @@ export class CouponsService {
       }
 
       coupon.usageCount += 1;
-      const savedCoupon = await this.couponsRepository.save(coupon);
+      const savedCoupon = await couponsRepository.save(coupon);
       return savedCoupon;
     } catch (err) {
       return handleError(
@@ -416,7 +433,8 @@ export class CouponsService {
    */
   async remove(id: number): Promise<void> {
     try {
-      const couponWithRelations = await this.couponsRepository.findOne({
+      const couponsRepository = await this.couponRepoPromise;
+      const couponWithRelations = await couponsRepository.findOne({
         where: { id },
         relations: ['orders'],
       });
@@ -431,7 +449,7 @@ export class CouponsService {
         );
       }
 
-      const result = await this.couponsRepository.softDelete(id);
+      const result = await couponsRepository.softDelete(id);
 
       if (result.affected === 0) {
         throw new NotFoundException(`Coupon with ID ${id} not found`);
@@ -455,7 +473,8 @@ export class CouponsService {
    */
   async restore(id: number): Promise<void> {
     try {
-      const coupon = await this.couponsRepository.findOne({
+      const couponsRepository = await this.couponRepoPromise;
+      const coupon = await couponsRepository.findOne({
         where: { id },
         withDeleted: true,
       });
@@ -468,7 +487,7 @@ export class CouponsService {
         throw new BadRequestException(`Coupon with ID ${id} is not deleted`);
       }
 
-      await this.couponsRepository.restore(id);
+      await couponsRepository.restore(id);
     } catch (err) {
       return handleError(
         err,

@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { MenuCategoriesService } from './menu-categories.service';
 import { MenuCategoriesController } from './menu-categories.controller';
-import { MenuCategory } from './entities/menu-category.entity';
 import { LoggerModule } from '../../logger/logger.module';
+import { TenantModule } from '../../tenant/tenant.module';
+import { AuthModule } from '../../auth/auth.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([MenuCategory]), LoggerModule],
+  imports: [LoggerModule, TenantModule, AuthModule],
   controllers: [MenuCategoriesController],
   providers: [MenuCategoriesService],
   exports: [MenuCategoriesService],

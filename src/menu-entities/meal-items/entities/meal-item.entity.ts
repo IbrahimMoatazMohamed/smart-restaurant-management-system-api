@@ -28,13 +28,6 @@ export class MealItem {
   })
   quantity: number;
 
-  @Column({ default: true })
-  @ApiProperty({
-    description: 'Whether the meal item is active',
-    example: true,
-  })
-  isActive: boolean;
-
   @DeleteDateColumn({ name: 'deleted_at' })
   @ApiProperty({
     description: 'When the meal item was soft deleted',

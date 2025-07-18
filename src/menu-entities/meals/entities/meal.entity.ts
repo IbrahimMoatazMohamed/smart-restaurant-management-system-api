@@ -14,7 +14,7 @@ import {
 import { ApiProperty } from '@nestjs/swagger';
 import { Item } from '../../items/entities/item.entity';
 import { MenuCategory } from '../../menu-categories/entities/menu-category.entity';
-import { MealItem } from './meal-item.entity';
+import { MealItem } from '../../meal-items/entities/meal-item.entity';
 
 // Define the MealStatus enum
 export enum MealStatus {

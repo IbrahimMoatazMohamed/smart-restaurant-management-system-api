@@ -3,9 +3,10 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  Scope,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Not, Repository } from 'typeorm';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 import { CreateIngredientCategoryDto } from './dto/create-ingredient-category.dto';
 import { UpdateIngredientCategoryDto } from './dto/update-ingredient-category.dto';
 import { IngredientCategory } from './entities/ingredient-category.entity';
@@ -14,15 +15,22 @@ import { handleDuplicateEntryError } from '../../utils/duplicate-entry-handler.u
 import { handleError } from '../../utils/error-handler.util';
 import { IngredientsService } from '../ingredients/ingredients.service';
 
-@Injectable()
+@Injectable({
+  scope: Scope.REQUEST,
+})
 export class IngredientCategoriesService {
+  private ingredientCategoryRepoPromise: Promise<
+    Repository<IngredientCategory>
+  >;
+
   constructor(
-    @InjectRepository(IngredientCategory)
-    private readonly ingredientCategoryRepository: Repository<IngredientCategory>,
+    private readonly tenantRepoProvider: TenantRepositoryProvider,
     private readonly ingredientService: IngredientsService,
     private readonly logger: CustomLoggerService,
   ) {
     this.logger.setContext('IngredientCategoriesService');
+    this.ingredientCategoryRepoPromise =
+      this.tenantRepoProvider.getRepository(IngredientCategory);
   }
 
   /**
@@ -39,11 +47,13 @@ export class IngredientCategoriesService {
         `Creating new ingredient category: ${createIngredientCategoryDto.name}`,
       );
 
-      const ingredientCategory = this.ingredientCategoryRepository.create(
+      const ingredientCategoryRepository =
+        await this.ingredientCategoryRepoPromise;
+      const ingredientCategory = ingredientCategoryRepository.create(
         createIngredientCategoryDto,
       );
       const savedCategory =
-        await this.ingredientCategoryRepository.save(ingredientCategory);
+        await ingredientCategoryRepository.save(ingredientCategory);
 
       this.logger.log(
         `Ingredient category created with ID: ${savedCategory.id}`,
@@ -85,7 +95,9 @@ export class IngredientCategoriesService {
         `Retrieving all ingredient categories, includeDeleted: ${includeDeleted}`,
       );
 
-      const queryBuilder = this.ingredientCategoryRepository
+      const ingredientCategoryRepository =
+        await this.ingredientCategoryRepoPromise;
+      const queryBuilder = ingredientCategoryRepository
         .createQueryBuilder('category')
         .leftJoinAndSelect('category.ingredients', 'ingredients')
         .withDeleted();
@@ -135,11 +147,12 @@ export class IngredientCategoriesService {
 
       this.logger.log(`Retrieving ingredient category with ID: ${id}`);
 
-      const ingredientCategory =
-        await this.ingredientCategoryRepository.findOne({
-          where: { id },
-          relations: ['ingredients'],
-        });
+      const ingredientCategoryRepository =
+        await this.ingredientCategoryRepoPromise;
+      const ingredientCategory = await ingredientCategoryRepository.findOne({
+        where: { id },
+        relations: ['ingredients'],
+      });
 
       if (!ingredientCategory) {
         this.logger.warn(`Ingredient category with ID ${id} not found`);
@@ -189,7 +202,9 @@ export class IngredientCategoriesService {
           updateIngredientCategoryDto.description;
       }
 
-      await this.ingredientCategoryRepository.save(ingredientCategory);
+      const ingredientCategoryRepository =
+        await this.ingredientCategoryRepoPromise;
+      await ingredientCategoryRepository.save(ingredientCategory);
 
       this.logger.log(`Ingredient category with ID ${id} updated`);
       return this.findOne(id); // Return the updated category with relations
@@ -229,9 +244,11 @@ export class IngredientCategoriesService {
     try {
       this.logger.log(`Soft deleting ingredient category with ID: ${id}`);
 
+      const ingredientCategoryRepository =
+        await this.ingredientCategoryRepoPromise;
       await this.ingredientService.deleteByCategoryId(id);
 
-      await this.ingredientCategoryRepository.softDelete(id);
+      await ingredientCategoryRepository.softDelete(id);
       this.logger.log(`Ingredient category with ID ${id} soft deleted`);
     } catch (error) {
       return handleError(
@@ -261,7 +278,9 @@ export class IngredientCategoriesService {
         `Restoring soft-deleted ingredient category with ID: ${id}`,
       );
 
-      await this.ingredientCategoryRepository.restore(id);
+      const ingredientCategoryRepository =
+        await this.ingredientCategoryRepoPromise;
+      await ingredientCategoryRepository.restore(id);
 
       this.logger.log(`Ingredient category with ID ${id} restored`);
 
@@ -289,7 +308,9 @@ export class IngredientCategoriesService {
       this.logger.log('Finding all soft-deleted ingredient categories');
 
       // Use withDeleted to include soft-deleted entities and filter to only get deleted ones
-      const categories = await this.ingredientCategoryRepository.find({
+      const ingredientCategoryRepository =
+        await this.ingredientCategoryRepoPromise;
+      const categories = await ingredientCategoryRepository.find({
         where: {
           deletedAt: Not(IsNull()),
         },
