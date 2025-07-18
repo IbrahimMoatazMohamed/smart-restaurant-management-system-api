@@ -624,4 +624,104 @@ export class MealsService {
       );
     }
   }
+
+  /**
+   * Process an order for a meal - decreases ingredient quantities for all items in the meal
+   *
+   * @param mealId Meal ID that was ordered
+   * @param quantity Quantity of the meal ordered
+   * @returns Object with success status and any warnings about low ingredient stock
+   */
+  async processOrder(
+    mealId: number,
+    quantity: number = 1,
+  ): Promise<{
+    success: boolean;
+    lowStockIngredients: {
+      id: number;
+      name: string;
+      stock: number;
+      warningAt: number;
+    }[];
+  }> {
+    try {
+      this.logger.log(
+        `Processing order for meal ID: ${mealId}, quantity: ${quantity}`,
+      );
+
+      const meal = await this.findOneWithItems(mealId);
+
+      if (!meal) {
+        throw new NotFoundException(`Meal with ID ${mealId} not found`);
+      }
+
+      const mealItems = await this.mealItemsService.findByMealId(mealId);
+
+      if (!mealItems || mealItems.length === 0) {
+        this.logger.log(`Meal ID ${mealId} has no items to process`);
+        return { success: true, lowStockIngredients: [] };
+      }
+
+      const lowStockIngredients: {
+        id: number;
+        name: string;
+        stock: number;
+        warningAt: number;
+      }[] = [];
+
+      for (const mealItem of mealItems) {
+        const itemQuantity = mealItem.quantity * quantity;
+
+        try {
+          const result = await this.itemsService.processOrder(
+            mealItem.itemId,
+            itemQuantity,
+          );
+
+          if (
+            result.lowStockIngredients &&
+            result.lowStockIngredients.length > 0
+          ) {
+            result.lowStockIngredients.forEach((ingredient) => {
+              if (
+                !lowStockIngredients.some((item) => item.id === ingredient.id)
+              ) {
+                lowStockIngredients.push(ingredient);
+              }
+            });
+          }
+        } catch (error) {
+          this.logger.error(
+            `Failed to process order for item ID: ${mealItem.itemId} in meal ID: ${mealId}`,
+            (error as Error).message,
+          );
+        }
+      }
+
+      return {
+        success: true,
+        lowStockIngredients,
+      };
+    } catch (error) {
+      return handleError(
+        error,
+        [NotFoundException, BadRequestException],
+        `Failed to process order for meal ID ${mealId}`,
+        () => {
+          this.logger.logError(error, 'MealsService.processOrder', {
+            mealId,
+            quantity,
+          });
+        },
+      ) as {
+        success: boolean;
+        lowStockIngredients: {
+          id: number;
+          name: string;
+          stock: number;
+          warningAt: number;
+        }[];
+      };
+    }
+  }
 }

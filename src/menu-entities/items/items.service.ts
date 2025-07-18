@@ -18,6 +18,7 @@ import { IngredientsService } from '../ingredients/ingredients.service';
 import { handleDuplicateEntryError } from '../../utils/duplicate-entry-handler.util';
 import { handleError } from '../../utils/error-handler.util';
 import { validateEntityExists } from '../../utils/entity-validation.util';
+import { UpdateQuantityDto } from '../ingredients/dto/update-quantity.dto';
 
 @Injectable()
 export class ItemsService {
@@ -435,6 +436,120 @@ export class ItemsService {
           this.logger.logError(error, 'ItemsService.softDelete', { id });
         },
       );
+    }
+  }
+
+  /**
+   * Process an order for an item - decreases ingredient quantities
+   *
+   * @param itemId Item ID that was ordered
+   * @param quantity Quantity of the item ordered
+   * @returns Object with success status and any warnings about low ingredient stock
+   */
+  async processOrder(
+    itemId: number,
+    quantity: number = 1,
+  ): Promise<{
+    success: boolean;
+    lowStockIngredients: {
+      id: number;
+      name: string;
+      stock: number;
+      warningAt: number;
+    }[];
+  }> {
+    try {
+      this.logger.log(
+        `Processing order for item ID: ${itemId}, quantity: ${quantity}`,
+      );
+
+      // Validate the item exists
+      const item = await this.findOne(itemId);
+      if (!item) {
+        throw new NotFoundException(`Item with ID ${itemId} not found`);
+      }
+
+      // Get all ingredients for this item
+      const itemIngredients =
+        await this.itemIngredientsService.findByItemId(itemId);
+      if (!itemIngredients || itemIngredients.length === 0) {
+        this.logger.log(`Item ID ${itemId} has no ingredients to process`);
+        return { success: true, lowStockIngredients: [] };
+      }
+
+      const lowStockIngredients: {
+        id: number;
+        name: string;
+        stock: number;
+        warningAt: number;
+      }[] = [];
+
+      // Process each ingredient
+      for (const itemIngredient of itemIngredients) {
+        if (!itemIngredient.ingredient) {
+          this.logger.warn(
+            `Missing ingredient relation for item ingredient ID: ${itemIngredient.id}`,
+          );
+          continue;
+        }
+
+        const ingredientId = itemIngredient.ingredient_id;
+        const requiredAmount = itemIngredient.qty * quantity;
+
+        // Create DTO with measurement information
+        const updateQuantityDto: UpdateQuantityDto = {
+          amount: requiredAmount,
+          measurement: itemIngredient.measurement,
+        };
+
+        try {
+          // Decrease the ingredient quantity
+          const result = await this.ingredientsService.decreaseQuantity(
+            ingredientId,
+            updateQuantityDto,
+          );
+
+          // Check if the ingredient is below warning threshold
+          if (result.belowWarningThreshold) {
+            lowStockIngredients.push({
+              id: result.ingredient.id,
+              name: result.ingredient.name,
+              stock: result.ingredient.stock,
+              warningAt: result.ingredient.warningAt,
+            });
+          }
+        } catch (error) {
+          this.logger.error(
+            `Failed to decrease quantity for ingredient ID: ${ingredientId}`,
+            (error as Error).message,
+          );
+        }
+      }
+
+      return {
+        success: true,
+        lowStockIngredients,
+      };
+    } catch (error) {
+      return handleError(
+        error,
+        [NotFoundException, BadRequestException],
+        `Failed to process order for item ID ${itemId}`,
+        () => {
+          this.logger.logError(error, 'ItemsService.processOrder', {
+            itemId,
+            quantity,
+          });
+        },
+      ) as {
+        success: boolean;
+        lowStockIngredients: {
+          id: number;
+          name: string;
+          stock: number;
+          warningAt: number;
+        }[];
+      };
     }
   }
 }

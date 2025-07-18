@@ -182,6 +182,7 @@ export class OrdersService {
         userId: createOrderDto.userId,
         tableId: createOrderDto.tableId,
         status: OrderStatus.PENDING,
+        orderType: createOrderDto.orderType,
         totalAmount: createOrderDto.totalAmount,
         specialInstructions: createOrderDto.specialInstructions,
         couponId: couponId,
@@ -210,6 +211,72 @@ export class OrdersService {
             quantity: menuItem.quantity,
           });
           await queryRunner.manager.save(orderMealItem);
+        }
+      }
+
+      if (createOrderDto.mealItems && createOrderDto.mealItems.length > 0) {
+        this.logger.log('Processing ingredient quantities for meals in order');
+        for (const mealItem of createOrderDto.mealItems) {
+          try {
+            const result = await this.mealsService.processOrder(
+              mealItem.mealId,
+              mealItem.quantity,
+            );
+
+            if (
+              result.lowStockIngredients &&
+              result.lowStockIngredients.length > 0
+            ) {
+              const ingredientDetails = result.lowStockIngredients
+                .map(
+                  (ing) =>
+                    `${ing.name} (ID: ${ing.id}): ${ing.stock}/${ing.warningAt}`,
+                )
+                .join(', ');
+              this.logger.warn(
+                `Low stock ingredients detected after processing meal ID ${mealItem.mealId}: ${ingredientDetails}`,
+              );
+            }
+          } catch (error) {
+            this.logger.error(
+              `Failed to process ingredient quantities for meal ID ${mealItem.mealId}`,
+              (error as Error).message,
+            );
+          }
+        }
+      }
+
+      if (createOrderDto.menuItems && createOrderDto.menuItems.length > 0) {
+        this.logger.log(
+          'Processing ingredient quantities for menu items in order',
+        );
+        for (const menuItem of createOrderDto.menuItems) {
+          try {
+            const result = await this.itemsService.processOrder(
+              menuItem.itemId,
+              menuItem.quantity,
+            );
+
+            if (
+              result.lowStockIngredients &&
+              result.lowStockIngredients.length > 0
+            ) {
+              const ingredientDetails = result.lowStockIngredients
+                .map(
+                  (ing) =>
+                    `${ing.name} (ID: ${ing.id}): ${ing.stock}/${ing.warningAt}`,
+                )
+                .join(', ');
+              this.logger.warn(
+                `Low stock ingredients detected after processing item ID ${menuItem.itemId}: ${ingredientDetails}`,
+              );
+            }
+          } catch (error) {
+            this.logger.error(
+              `Failed to process ingredient quantities for item ID ${menuItem.itemId}`,
+              (error as Error).message,
+            );
+          }
         }
       }
 
@@ -377,6 +444,10 @@ export class OrdersService {
         order.status = updateOrderDto.status;
       }
 
+      if (updateOrderDto.orderType) {
+        order.orderType = updateOrderDto.orderType;
+      }
+
       if (updateOrderDto.totalAmount) {
         order.totalAmount = updateOrderDto.totalAmount;
       }
@@ -387,6 +458,7 @@ export class OrdersService {
 
       await this.ordersRepository.update(order.id, {
         status: order.status,
+        orderType: order.orderType,
         totalAmount: order.totalAmount,
         specialInstructions: order.specialInstructions,
         userId: order.userId,

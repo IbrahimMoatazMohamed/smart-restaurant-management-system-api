@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   Controller,
   Get,
@@ -9,6 +11,8 @@ import {
   HttpCode,
   UseGuards,
   UploadedFile,
+  ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -23,6 +27,8 @@ import {
   ApiForbiddenResponse,
   ApiConsumes,
   ApiBody,
+  ApiSecurity,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -40,6 +46,9 @@ import { ImageUpload } from '../file-upload/decorators/image-upload.decorator';
 import { ImageUploadHelper } from '../file-upload/helpers/image-upload.helper';
 import { RolesService } from '../roles/roles.service';
 import { Param } from '@nestjs/common';
+import { SuperAdminTokenGuard } from '../auth/guards/super-admin-token.guard';
+import { RegisterAdminDto } from './dto/register-admin.dto';
+import Gender from './types/gender';
 
 /**
  * Users Controller
@@ -328,5 +337,92 @@ export class UsersController {
       parseInt(userId, 10),
       parseInt(roleId, 10),
     );
+  }
+
+  /**
+   * Register a new admin user with super admin token validation
+   *
+   * @param registerAdminDto Admin registration data
+   * @returns Created admin user
+   */
+  @Post('register-admin')
+  @UseGuards(SuperAdminTokenGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Register a new admin user (Super Admin only)' })
+  @ApiSecurity('super-admin-token')
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Admin user has been successfully registered.',
+    type: UserResponseDto,
+  })
+  @ApiConflictResponse({
+    description: 'Email already exists.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid input data.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to register admin user.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Invalid super admin token.',
+  })
+  async registerAdmin(
+    @Body() registerAdminDto: RegisterAdminDto,
+  ): Promise<UserResponseDto> {
+    this.logger.log(
+      `Registering new admin user with email: ${registerAdminDto.email}`,
+    );
+
+    let adminRole;
+    try {
+      adminRole = await this.rolesService.findByName('admin');
+    } catch {
+      this.logger.log('Admin role not found, creating it');
+      adminRole = await this.rolesService.create({
+        name: 'admin',
+        description: 'Administrator role with full access',
+        permissions: {
+          users: ['create', 'read', 'update', 'delete'],
+          roles: ['create', 'read', 'update', 'delete'],
+          orders: ['read', 'update', 'delete'],
+          tables: ['create', 'read', 'update', 'delete'],
+          tableReservations: ['read', 'update', 'delete'],
+        },
+      });
+    }
+
+    const users = await this.usersService.findAll();
+    const adminUsers = users.filter(
+      (user) => user.role && user.role.name === 'admin',
+    );
+
+    if (adminUsers.length > 0) {
+      this.logger.warn(
+        `Admin user already exists. Cannot create another admin user.`,
+      );
+      throw new ConflictException(
+        'Admin user already exists. Cannot create another admin user.',
+      );
+    }
+
+    if (!adminRole || typeof adminRole !== 'object' || !('id' in adminRole)) {
+      this.logger.error('Invalid admin role structure');
+      throw new BadRequestException(
+        'Failed to create admin user due to invalid role',
+      );
+    }
+
+    const createUserDto: CreateUserDto = {
+      name: 'Admin User',
+      email: registerAdminDto.email,
+      password: registerAdminDto.password,
+      roleId: adminRole.id,
+      phone: '+0000000000',
+      gender: Gender.MALE,
+      country: 'Default',
+    };
+
+    return await this.usersService.create(createUserDto);
   }
 }
