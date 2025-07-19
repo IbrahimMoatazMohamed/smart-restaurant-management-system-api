@@ -5,7 +5,7 @@ import {
   BadRequestException,
   Scope,
 } from '@nestjs/common';
-import { IsNull, Not, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 import { CreateIngredientCategoryDto } from './dto/create-ingredient-category.dto';
 import { UpdateIngredientCategoryDto } from './dto/update-ingredient-category.dto';
@@ -310,12 +310,12 @@ export class IngredientCategoriesService {
       // Use withDeleted to include soft-deleted entities and filter to only get deleted ones
       const ingredientCategoryRepository =
         await this.ingredientCategoryRepoPromise;
-      const categories = await ingredientCategoryRepository.find({
-        where: {
-          deletedAt: Not(IsNull()),
-        },
-        withDeleted: true,
-      });
+      const categories = await ingredientCategoryRepository
+        .createQueryBuilder('category')
+        .leftJoinAndSelect('category.ingredients', 'ingredients')
+        .withDeleted()
+        .where('category.deleted_at IS NOT NULL')
+        .getMany();
 
       this.logger.log(
         `Found ${categories.length} soft-deleted ingredient categories`,

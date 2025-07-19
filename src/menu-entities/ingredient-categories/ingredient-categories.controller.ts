@@ -83,10 +83,8 @@ export class IngredientCategoriesController {
     description: 'List of ingredient categories returned successfully.',
   })
   findAll(@Query('includeDeleted') includeDeleted?: string) {
-    if (includeDeleted === 'true') {
-      return this.ingredientCategoriesService.findAllSoftDeleted();
-    }
-    return this.ingredientCategoriesService.findAll();
+    const shouldIncludeDeleted = includeDeleted === 'true';
+    return this.ingredientCategoriesService.findAll(shouldIncludeDeleted);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
