@@ -53,41 +53,13 @@ The Smart Restaurant Server API is designed to support multi-tenant restaurant o
 - **File Storage**: Organized file structure
 - **Image Processing**: Optimized image handling
 
-## 🛠️ Technology Stack
-
-### Core Framework
-
-- **NestJS**: Progressive Node.js framework
-- **TypeScript**: Full type safety and enhanced development
-- **Node.js**: Runtime environment
-
-### Database & ORM
-
-- **MySQL**: Relational database management
-- **TypeORM**: Object-relational mapping with decorators
-- **Connection Pooling**: Optimized database connections
-- **Migrations**: Database schema version control
-
-### Authentication & Security
-
-- **Passport.js**: Authentication middleware
-- **JWT**: JSON Web Tokens for stateless auth
-- **Bcrypt**: Password hashing and validation
-- **Guards**: Route protection and authorization
-
-### API & Documentation
-
-- **Swagger/OpenAPI**: Comprehensive API documentation
-- **Class Validator**: Request validation and sanitization
-- **Class Transformer**: Data transformation and serialization
-
 ## 🚀 Getting Started
 
 ### Prerequisites
 
 - **Node.js** (v18 or higher)
 - **MySQL** (v8.0 or higher)
-- **npm** or **yarn**
+- **npm**
 - **Git** for version control
 
 ### Installation
@@ -95,7 +67,7 @@ The Smart Restaurant Server API is designed to support multi-tenant restaurant o
 1. **Clone the repository**
 
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/IbrahimMoatazMohamed/smart-restaurant-management-system-api
    cd smart-restaurant/server
    ```
 
@@ -200,7 +172,3 @@ src/
 ## 📚 API Endpoints
 
 _For complete API documentation, visit the Swagger UI at `/api/api-docs`_
-
-## 📄 License
-
-This project is part of the Smart Restaurant Management System. All rights reserved.
