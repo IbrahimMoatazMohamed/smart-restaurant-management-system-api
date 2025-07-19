@@ -490,9 +490,11 @@ export class ItemsService {
 
       // Get all ingredients for this item
       const itemIngredientsRepository = await this.itemIngredientsRepoPromise;
-      const itemIngredients = await itemIngredientsRepository.findBy({
-        item_id: itemId,
+      const itemIngredients = await itemIngredientsRepository.find({
+        where: { item_id: itemId },
+        relations: ['ingredient'],
       });
+
       if (!itemIngredients || itemIngredients.length === 0) {
         this.logger.log(`Item ID ${itemId} has no ingredients to process`);
         return { success: true, lowStockIngredients: [] };
@@ -514,7 +516,7 @@ export class ItemsService {
           continue;
         }
 
-        const ingredientId = itemIngredient.ingredient_id;
+        const ingredientId = itemIngredient.ingredient.id;
         const requiredAmount = itemIngredient.qty * quantity;
 
         // Create DTO with measurement information
