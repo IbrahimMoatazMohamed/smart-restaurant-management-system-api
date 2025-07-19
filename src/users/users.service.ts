@@ -306,6 +306,44 @@ export class UsersService {
   }
 
   /**
+   * Change a user's password
+   *
+   * @param id User ID
+   * @param newPassword New password
+   * @returns Success message
+   */
+  async changePassword(
+    id: number,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    try {
+      const usersRepository = await this.usersRepoPromise;
+      const userEntity = await usersRepository.findOne({ where: { id } });
+      if (!userEntity) {
+        throw new NotFoundException(`User with ID ${id} not found`);
+      }
+
+      const hashedPassword = await hashPassword(newPassword);
+      userEntity.password = hashedPassword;
+      await usersRepository.save(userEntity);
+
+      this.logger.log(`Password changed successfully for user with ID: ${id}`);
+      return { message: 'Password changed successfully' };
+    } catch (err) {
+      return handleError(
+        err,
+        [NotFoundException, BadRequestException],
+        `Failed to change password for user with ID ${id}`,
+        () => {
+          this.logger.logError(err, 'UsersService.changePassword', {
+            userId: id,
+          });
+        },
+      );
+    }
+  }
+
+  /**
    * Update a user's profile image
    *
    * @param id User ID

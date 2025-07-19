@@ -48,6 +48,7 @@ import { RolesService } from '../roles/roles.service';
 import { Param } from '@nestjs/common';
 import { SuperAdminTokenGuard } from '../auth/guards/super-admin-token.guard';
 import { RegisterAdminDto } from './dto/register-admin.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import Gender from './types/gender';
 
 /**
@@ -304,6 +305,56 @@ export class UsersController {
     this.logger.log(`Uploading profile image for user with ID: ${userId}`);
     const imageUrl = this.imageUploadHelper.extractImageUrl(photo);
     return await this.usersService.updateProfileImage(userId, imageUrl);
+  }
+
+  /**
+   * Change a user's password
+   *
+   * @param userId User ID
+   * @param changePasswordDto Change password data
+   * @returns Success message
+   */
+  @Patch(':userId/change-password')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
+  @RequirePermissions('users.update')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: "Change a user's password (Admin only)" })
+  @ApiParam({ name: 'userId', description: 'User ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Password has been successfully changed.',
+    schema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Password changed successfully',
+        },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'User not found.',
+  })
+  @ApiForbiddenResponse({
+    description: 'Access denied. Admin role required.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid password format.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Failed to change password.',
+  })
+  async changePassword(
+    @Param('userId') userId: string,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ): Promise<{ message: string }> {
+    this.logger.log(`Changing password for user ID ${userId}`);
+    return await this.usersService.changePassword(
+      parseInt(userId, 10),
+      changePasswordDto.newPassword,
+    );
   }
 
   /**
