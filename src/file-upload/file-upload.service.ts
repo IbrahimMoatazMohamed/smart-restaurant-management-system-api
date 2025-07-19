@@ -28,7 +28,7 @@ export class FileUploadService {
     if (filename.startsWith('http')) {
       return filename;
     }
-    return `${this.baseUrl}/api/uploads/${filename}`;
+    return `${this.baseUrl}/uploads/${filename}`;
   }
 
   /**
