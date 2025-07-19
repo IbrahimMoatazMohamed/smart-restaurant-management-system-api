@@ -27,5 +27,5 @@ jobs:
           ssh -i ~/.ssh/id_rsa root@164.92.206.108 "
             cd /var/www/html/server &&
             git pull &&
-            pm2 restart nextjs
+            pm2 restart server
           "
