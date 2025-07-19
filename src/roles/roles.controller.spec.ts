@@ -5,6 +5,7 @@ import { RolesController } from './roles.controller';
 import { RolesService } from './roles.service';
 import { Role } from './entities/role.entity';
 import { CustomLoggerService } from '../logger/logger.service';
+import { TenantRepositoryProvider } from '../tenant/tenant-repository.provider';
 
 describe('RolesController', () => {
   let controller: RolesController;
@@ -14,6 +15,23 @@ describe('RolesController', () => {
       controllers: [RolesController],
       providers: [
         RolesService,
+        {
+          provide: TenantRepositoryProvider,
+          useValue: {
+            getRepository: jest.fn().mockImplementation(() =>
+              Promise.resolve({
+                find: jest.fn(),
+                findOne: jest.fn(),
+                create: jest.fn(),
+                save: jest.fn(),
+                update: jest.fn(),
+                remove: jest.fn(),
+                softDelete: jest.fn(),
+                restore: jest.fn(),
+              }),
+            ),
+          },
+        },
         {
           provide: getRepositoryToken(Role),
           useValue: {

@@ -58,7 +58,8 @@ describe('IngredientsService', () => {
       ],
     }).compile();
 
-    service = module.get<IngredientsService>(IngredientsService);
+    // Use resolve() for scoped providers instead of get()
+    service = await module.resolve<IngredientsService>(IngredientsService);
     repository = module.get<Repository<Ingredient>>(
       getRepositoryToken(Ingredient),
     );

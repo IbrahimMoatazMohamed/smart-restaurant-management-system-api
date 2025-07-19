@@ -242,7 +242,7 @@ describe('IngredientCategoriesController', () => {
       expect(result).toEqual(expectedResult);
     });
 
-    it('should return all ingredient categories including soft-deleted ones when withDeleted=true', async () => {
+    it('should return all ingredient categories including soft-deleted ones when includeDeleted=true', async () => {
       // Arrange
       const expectedResult: IngredientCategory[] = [
         {
@@ -265,16 +265,14 @@ describe('IngredientCategoriesController', () => {
         },
       ];
 
-      mockIngredientCategoriesService.findAllSoftDeleted.mockResolvedValue(
-        expectedResult,
-      );
+      mockIngredientCategoriesService.findAll.mockResolvedValue(expectedResult);
 
       // Act
       const result = await controller.findAll('true');
 
       // Assert
       // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(service.findAllSoftDeleted).toHaveBeenCalled();
+      expect(service.findAll).toHaveBeenCalledWith(true);
       expect(result).toEqual(expectedResult);
     });
   });

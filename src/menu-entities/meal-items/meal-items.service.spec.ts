@@ -1,22 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
 import { MealItemsService } from './meal-items.service';
-import { MealItem } from './entities/meal-item.entity';
 import { MealsService } from '../meals/meals.service';
 import { ItemsService } from '../items/items.service';
 import { CustomLoggerService } from '../../logger/logger.service';
-
-// Create mock repository factory
-const mockRepository = {
-  find: jest.fn(),
-  findOne: jest.fn(),
-  create: jest.fn(),
-  save: jest.fn(),
-  update: jest.fn(),
-  softDelete: jest.fn(),
-  restore: jest.fn(),
-  remove: jest.fn(),
-};
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 
 // Create mock services
 const mockMealsService = {
@@ -37,6 +24,21 @@ const mockLoggerService = {
   logError: jest.fn(),
 };
 
+const mockTenantRepositoryProvider = {
+  getRepository: jest.fn().mockImplementation(() =>
+    Promise.resolve({
+      find: jest.fn(),
+      findOne: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+      update: jest.fn(),
+      remove: jest.fn(),
+      softDelete: jest.fn(),
+      restore: jest.fn(),
+    }),
+  ),
+};
+
 describe('MealItemsService', () => {
   let service: MealItemsService;
 
@@ -45,8 +47,8 @@ describe('MealItemsService', () => {
       providers: [
         MealItemsService,
         {
-          provide: getRepositoryToken(MealItem),
-          useValue: mockRepository,
+          provide: TenantRepositoryProvider,
+          useValue: mockTenantRepositoryProvider,
         },
         {
           provide: MealsService,
@@ -63,7 +65,7 @@ describe('MealItemsService', () => {
       ],
     }).compile();
 
-    service = module.get<MealItemsService>(MealItemsService);
+    service = await module.resolve<MealItemsService>(MealItemsService);
   });
 
   it('should be defined', () => {

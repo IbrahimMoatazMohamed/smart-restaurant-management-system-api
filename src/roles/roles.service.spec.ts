@@ -60,7 +60,7 @@ describe('RolesService', () => {
       ],
     }).compile();
 
-    service = module.get<RolesService>(RolesService);
+    service = await module.resolve<RolesService>(RolesService);
   });
 
   it('should be defined', () => {

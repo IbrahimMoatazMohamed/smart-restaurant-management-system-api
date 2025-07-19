@@ -1,50 +1,34 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository, ObjectLiteral } from 'typeorm';
 import { TableReservationsService } from './table-reservations.service';
-import { TableReservation } from './entities/table-reservation.entity';
-import { Table } from '../tables/entities/table.entity';
 import { CustomLoggerService } from '../../logger/logger.service';
-
-type MockRepository<T extends ObjectLiteral = any> = Partial<
-  Record<keyof Repository<T>, jest.Mock>
->;
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 
 describe('TableReservationsService', () => {
   let service: TableReservationsService;
-  // These repositories are used in more advanced tests
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  let tableReservationRepository: MockRepository;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  let tableRepository: MockRepository;
 
   beforeEach(async () => {
+    const mockRepository = () => ({
+      find: jest.fn().mockResolvedValue([]),
+      findOne: jest.fn().mockResolvedValue({}),
+      create: jest.fn().mockReturnValue({}),
+      save: jest.fn().mockResolvedValue({}),
+      update: jest.fn().mockResolvedValue({}),
+      delete: jest.fn().mockResolvedValue({}),
+      remove: jest.fn().mockResolvedValue({}),
+    });
+
+    const mockTenantRepositoryProvider = {
+      getRepository: jest
+        .fn()
+        .mockImplementation(() => Promise.resolve(mockRepository())),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TableReservationsService,
         {
-          provide: getRepositoryToken(TableReservation),
-          useValue: {
-            find: jest.fn().mockResolvedValue([]),
-            findOne: jest.fn().mockResolvedValue({}),
-            create: jest.fn().mockReturnValue({}),
-            save: jest.fn().mockResolvedValue({}),
-            update: jest.fn().mockResolvedValue({}),
-            delete: jest.fn().mockResolvedValue({}),
-            remove: jest.fn().mockResolvedValue({}),
-          },
-        },
-        {
-          provide: getRepositoryToken(Table),
-          useValue: {
-            find: jest.fn().mockResolvedValue([]),
-            findOne: jest.fn().mockResolvedValue({}),
-            create: jest.fn().mockReturnValue({}),
-            save: jest.fn().mockResolvedValue({}),
-            update: jest.fn().mockResolvedValue({}),
-            delete: jest.fn().mockResolvedValue({}),
-            remove: jest.fn().mockResolvedValue({}),
-          },
+          provide: TenantRepositoryProvider,
+          useValue: mockTenantRepositoryProvider,
         },
         {
           provide: CustomLoggerService,
@@ -61,11 +45,9 @@ describe('TableReservationsService', () => {
       ],
     }).compile();
 
-    service = module.get<TableReservationsService>(TableReservationsService);
-    tableReservationRepository = module.get<MockRepository>(
-      getRepositoryToken(TableReservation),
+    service = await module.resolve<TableReservationsService>(
+      TableReservationsService,
     );
-    tableRepository = module.get<MockRepository>(getRepositoryToken(Table));
   });
 
   it('should be defined', () => {

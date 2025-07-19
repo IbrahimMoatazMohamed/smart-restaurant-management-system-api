@@ -11,6 +11,7 @@ import { FileUploadService } from '../../file-upload/file-upload.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Reflector } from '@nestjs/core';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 
 describe('ItemsController', () => {
   let controller: ItemsController;
@@ -78,6 +79,23 @@ describe('ItemsController', () => {
           useValue: {
             get: jest.fn(),
             getAllAndOverride: jest.fn(),
+          },
+        },
+        {
+          provide: TenantRepositoryProvider,
+          useValue: {
+            getRepository: jest.fn().mockImplementation(() =>
+              Promise.resolve({
+                find: jest.fn(),
+                findOne: jest.fn(),
+                create: jest.fn(),
+                save: jest.fn(),
+                update: jest.fn(),
+                remove: jest.fn(),
+                softDelete: jest.fn(),
+                restore: jest.fn(),
+              }),
+            ),
           },
         },
       ],

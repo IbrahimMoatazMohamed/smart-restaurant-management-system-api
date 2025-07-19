@@ -73,7 +73,7 @@ describe('MealsService', () => {
       ],
     }).compile();
 
-    service = module.get<MealsService>(MealsService);
+    service = await module.resolve<MealsService>(MealsService);
   });
 
   it('should be defined', () => {

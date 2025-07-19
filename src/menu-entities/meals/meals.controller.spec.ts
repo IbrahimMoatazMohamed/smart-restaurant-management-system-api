@@ -8,6 +8,7 @@ import { MenuCategoriesService } from '../menu-categories/menu-categories.servic
 import { MealItemsService } from '../meal-items/meal-items.service';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { ImageUploadHelper } from '../../file-upload/helpers/image-upload.helper';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 
 describe('MealsController', () => {
   let controller: MealsController;
@@ -78,11 +79,28 @@ describe('MealsController', () => {
           provide: ImageUploadHelper,
           useValue: mockImageUploadHelper,
         },
+        {
+          provide: TenantRepositoryProvider,
+          useValue: {
+            getRepository: jest.fn().mockImplementation(() =>
+              Promise.resolve({
+                find: jest.fn(),
+                findOne: jest.fn(),
+                create: jest.fn(),
+                save: jest.fn(),
+                update: jest.fn(),
+                remove: jest.fn(),
+                softDelete: jest.fn(),
+                restore: jest.fn(),
+              }),
+            ),
+          },
+        },
       ],
     }).compile();
 
     controller = module.get<MealsController>(MealsController);
-    service = module.get<MealsService>(MealsService);
+    service = await module.resolve<MealsService>(MealsService);
   });
 
   it('should be defined', () => {

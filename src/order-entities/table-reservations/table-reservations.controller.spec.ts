@@ -5,6 +5,7 @@ import { TableReservationsService } from './table-reservations.service';
 import { TableReservation } from './entities/table-reservation.entity';
 import { Table } from '../tables/entities/table.entity';
 import { CustomLoggerService } from '../../logger/logger.service';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 
 const mockTableReservationRepository = {
   findOne: jest.fn(),
@@ -29,6 +30,19 @@ const mockLoggerService = {
   logError: jest.fn(),
 };
 
+const mockTenantRepositoryProvider = {
+  getRepository: jest.fn().mockImplementation(() =>
+    Promise.resolve({
+      find: jest.fn(),
+      findOne: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+      update: jest.fn(),
+      remove: jest.fn(),
+    }),
+  ),
+};
+
 describe('TableReservationsController', () => {
   let controller: TableReservationsController;
 
@@ -48,6 +62,10 @@ describe('TableReservationsController', () => {
         {
           provide: CustomLoggerService,
           useValue: mockLoggerService,
+        },
+        {
+          provide: TenantRepositoryProvider,
+          useValue: mockTenantRepositoryProvider,
         },
       ],
     }).compile();

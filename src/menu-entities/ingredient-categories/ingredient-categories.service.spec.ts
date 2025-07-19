@@ -1,8 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { IngredientCategoriesService } from './ingredient-categories.service';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { IngredientCategory } from './entities/ingredient-category.entity';
-import { Repository } from 'typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { IngredientsService } from '../ingredients/ingredients.service';
@@ -14,8 +11,6 @@ import { CreateIngredientCategoryDto } from './dto/create-ingredient-category.dt
 describe('IngredientCategoriesService', () => {
   let service: IngredientCategoriesService;
   // These are available for use in additional tests
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  let repository: Repository<IngredientCategory>;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let ingredientsService: IngredientsService;
 
@@ -51,14 +46,13 @@ describe('IngredientCategoriesService', () => {
   const mockTenantRepositoryProvider = {
     getRepository: jest.fn().mockResolvedValue(mockRepository),
   };
-
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         IngredientCategoriesService,
         {
-          provide: getRepositoryToken(IngredientCategory),
-          useValue: mockRepository,
+          provide: TenantRepositoryProvider,
+          useValue: mockTenantRepositoryProvider,
         },
         {
           provide: IngredientsService,
@@ -68,18 +62,12 @@ describe('IngredientCategoriesService', () => {
           provide: CustomLoggerService,
           useValue: mockLoggerService,
         },
-        {
-          provide: TenantRepositoryProvider,
-          useValue: mockTenantRepositoryProvider,
-        },
       ],
     }).compile();
 
-    service = module.get<IngredientCategoriesService>(
+    // Use resolve() for scoped providers instead of get()
+    service = await module.resolve<IngredientCategoriesService>(
       IngredientCategoriesService,
-    );
-    repository = module.get<Repository<IngredientCategory>>(
-      getRepositoryToken(IngredientCategory),
     );
     ingredientsService = module.get<IngredientsService>(IngredientsService);
   });

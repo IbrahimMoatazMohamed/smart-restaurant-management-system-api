@@ -57,7 +57,9 @@ describe('MenuCategoriesService', () => {
       ],
     }).compile();
 
-    service = module.get<MenuCategoriesService>(MenuCategoriesService);
+    service = await module.resolve<MenuCategoriesService>(
+      MenuCategoriesService,
+    );
   });
 
   it('should be defined', () => {

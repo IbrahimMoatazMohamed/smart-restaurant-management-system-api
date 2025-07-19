@@ -1,15 +1,20 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
 import { TablesService } from './tables.service';
-import { Table } from './entities/table.entity';
 import { CustomLoggerService } from '../../logger/logger.service';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 
-const mockTableRepository = {
+const mockRepository = () => ({
   findOne: jest.fn(),
   find: jest.fn(),
   create: jest.fn(),
   save: jest.fn(),
   delete: jest.fn(),
+});
+
+const mockTenantRepositoryProvider = {
+  getRepository: jest
+    .fn()
+    .mockImplementation(() => Promise.resolve(mockRepository())),
 };
 
 const mockLoggerService = {
@@ -29,8 +34,8 @@ describe('TablesService', () => {
       providers: [
         TablesService,
         {
-          provide: getRepositoryToken(Table),
-          useValue: mockTableRepository,
+          provide: TenantRepositoryProvider,
+          useValue: mockTenantRepositoryProvider,
         },
         {
           provide: CustomLoggerService,
@@ -39,7 +44,7 @@ describe('TablesService', () => {
       ],
     }).compile();
 
-    service = module.get<TablesService>(TablesService);
+    service = await module.resolve<TablesService>(TablesService);
   });
 
   it('should be defined', () => {

@@ -66,7 +66,9 @@ const mockLoggerService = {
 };
 
 const mockTenantRepositoryProvider = {
-  getRepository: jest.fn().mockImplementation(() => Promise.resolve(mockRepository())),
+  getRepository: jest
+    .fn()
+    .mockImplementation(() => Promise.resolve(mockRepository())),
 };
 
 describe('OrdersService', () => {
@@ -77,7 +79,10 @@ describe('OrdersService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OrdersService,
-        { provide: TenantRepositoryProvider, useValue: mockTenantRepositoryProvider },
+        {
+          provide: TenantRepositoryProvider,
+          useValue: mockTenantRepositoryProvider,
+        },
         { provide: getRepositoryToken(Order), useFactory: mockRepository },
         {
           provide: getRepositoryToken(OrderMealItem),
@@ -93,7 +98,7 @@ describe('OrdersService', () => {
       ],
     }).compile();
 
-    service = module.get<OrdersService>(OrdersService);
+    service = await module.resolve<OrdersService>(OrdersService);
   });
 
   it('should be defined', () => {

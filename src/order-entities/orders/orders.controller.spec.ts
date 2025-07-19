@@ -114,7 +114,7 @@ describe('OrdersController', () => {
     }).compile();
 
     controller = module.get<OrdersController>(OrdersController);
-    service = module.get<OrdersService>(OrdersService);
+    service = await module.resolve<OrdersService>(OrdersService);
   });
 
   it('should be defined', () => {

@@ -8,9 +8,9 @@ jest.mock('./entities/users.entity', () => {
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from './users.service';
-import { getRepositoryToken } from '@nestjs/typeorm';
 import { Users } from './entities/users.entity';
 import { CustomLoggerService } from '../logger/logger.service';
+import { TenantRepositoryProvider } from '../tenant/tenant-repository.provider';
 import { NotFoundException } from '@nestjs/common';
 import * as passwordUtil from '../utils/password.util';
 import Gender from './types/gender';
@@ -18,17 +18,13 @@ import { Role } from '../roles/entities/role.entity';
 
 describe('UsersService', () => {
   let service: UsersService;
+  let mockTenantRepositoryProvider: {
+    getRepository: jest.Mock;
+  };
   let mockRepository: {
     findOne: jest.Mock;
     find: jest.Mock;
     create: jest.Mock;
-    save: jest.Mock;
-    remove: jest.Mock;
-  };
-  let mockLogger: {
-    setContext: jest.Mock;
-    logError: jest.Mock;
-  };
 
   const mockUser: Partial<Users> = {
     id: 1,
@@ -62,23 +58,29 @@ describe('UsersService', () => {
     mockLogger = {
       setContext: jest.fn(),
       logError: jest.fn(),
+      log: jest.fn(),
+      warn: jest.fn(),
+    };
+
+    mockTenantRepositoryProvider = {
+      getRepository: jest.fn().mockImplementation(() => Promise.resolve(mockRepository)),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
         {
-          provide: getRepositoryToken(Users),
-          useValue: mockRepository,
-        },
-        {
           provide: CustomLoggerService,
           useValue: mockLogger,
+        },
+        {
+          provide: TenantRepositoryProvider,
+          useValue: mockTenantRepositoryProvider,
         },
       ],
     }).compile();
 
-    service = module.get<UsersService>(UsersService);
+    service = await module.resolve<UsersService>(UsersService);
   });
 
   it('should be defined', () => {
@@ -110,7 +112,11 @@ describe('UsersService', () => {
     });
 
     it('should create a new user successfully', async () => {
-      mockRepository.findOne.mockResolvedValue(null);
+      // Mock checkIfEmailExists and checkIfPhoneExists behavior
+      mockRepository.findOne.mockImplementation(() => {
+        return Promise.resolve(null);
+      });
+
       mockRepository.create.mockReturnValue({
         ...createUserDto,
         password: hashedPassword,
@@ -140,9 +146,15 @@ describe('UsersService', () => {
     });
 
     it('should throw ConflictException if email already exists', async () => {
-      mockRepository.findOne.mockResolvedValueOnce({
-        id: 2,
-        email: createUserDto.email,
+      // Mock email check to return existing user
+      mockRepository.findOne.mockImplementation((options: any) => {
+        if (options?.where?.email === createUserDto.email) {
+          return Promise.resolve({
+            id: 2,
+            email: createUserDto.email,
+          });
+        }
+        return Promise.resolve(null);
       });
 
       await expect(service.create(createUserDto)).rejects.toThrow(
@@ -153,10 +165,21 @@ describe('UsersService', () => {
     });
 
     it('should throw ConflictException if phone already exists', async () => {
-      mockRepository.findOne.mockResolvedValueOnce(null);
-      mockRepository.findOne.mockResolvedValueOnce({
-        id: 3,
-        phone: createUserDto.phone,
+      // First call for email check returns null (email doesn't exist)
+      // Second call for phone check returns existing user with same phone
+      let callCount = 0;
+      mockRepository.findOne.mockImplementation((options: any) => {
+        callCount++;
+        if (callCount === 1) { // First call for email check
+          return Promise.resolve(null);
+        }
+        if (callCount === 2 && options?.where?.phone === createUserDto.phone) { // Second call for phone check
+          return Promise.resolve({
+            id: 2,
+            phone: createUserDto.phone,
+          });
+        }
+        return Promise.resolve(null);
       });
 
       await expect(service.create(createUserDto)).rejects.toThrow(
@@ -196,15 +219,20 @@ describe('UsersService', () => {
     };
 
     it('should update a user successfully', async () => {
+      // Mock phone check to return null (phone doesn't exist)
+      // Mock user lookup to return existing user
+      let callCount = 0;
       mockRepository.findOne.mockImplementation((options: any) => {
-        if (options?.where?.id === userId) {
+        callCount++;
+        if (callCount === 1 && options?.where?.id === userId) {
           return Promise.resolve(existingUser);
         }
-        if (options?.where?.phone === updateUserDto.phone) {
+        if (callCount === 2 && options?.where?.phone === updateUserDto.phone) {
           return Promise.resolve(null);
         }
         return Promise.resolve(null);
       });
+      
       mockRepository.save.mockResolvedValue({
         ...existingUser,
         ...updateUserDto,
@@ -237,11 +265,15 @@ describe('UsersService', () => {
     });
 
     it('should throw ConflictException if phone already exists for another user', async () => {
-      jest
-        .spyOn(service, 'findOne')
-        .mockResolvedValueOnce(existingUser as unknown as Users);
-      mockRepository.findOne.mockImplementationOnce((options: any) => {
-        if (options?.where?.phone === updateUserDto.phone) {
+      // First call returns the user being updated
+      // Second call for phone check returns a different user with same phone
+      let callCount = 0;
+      mockRepository.findOne.mockImplementation((options: any) => {
+        callCount++;
+        if (callCount === 1 && options?.where?.id === userId) {
+          return Promise.resolve(existingUser);
+        }
+        if (callCount === 2 && options?.where?.phone === updateUserDto.phone) {
           return Promise.resolve({
             id: 2,
             phone: updateUserDto.phone,
@@ -299,6 +331,21 @@ describe('UsersService', () => {
         service.findByEmail('nonexistent@example.com'),
       ).rejects.toThrow(NotFoundException);
       expect(mockRepository.findOne).toHaveBeenCalled();
+    });
+  });
+  
+  describe('findOne', () => {
+    it('should return a user when a valid id is provided', async () => {
+      mockRepository.findOne.mockResolvedValue(mockUser);
+
+      const result = await service.findOne(1);
+      expect(result).toEqual(mockUser);
+    });
+
+    it('should throw NotFoundException when user is not found', async () => {
+      mockRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.findOne(999)).rejects.toThrow(NotFoundException);
     });
   });
 

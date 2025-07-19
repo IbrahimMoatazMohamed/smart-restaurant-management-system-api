@@ -1,8 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
 import { CouponsService } from './coupons.service';
-import { Coupon } from './entities/coupon.entity';
 import { CustomLoggerService } from '../../logger/logger.service';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 
 const mockCouponRepository = {
   findOne: jest.fn(),
@@ -12,6 +11,12 @@ const mockCouponRepository = {
   preload: jest.fn(),
   softDelete: jest.fn(),
   restore: jest.fn(),
+};
+
+const mockTenantRepositoryProvider = {
+  getRepository: jest
+    .fn()
+    .mockImplementation(() => Promise.resolve(mockCouponRepository)),
 };
 
 const mockLoggerService = {
@@ -31,8 +36,8 @@ describe('CouponsService', () => {
       providers: [
         CouponsService,
         {
-          provide: getRepositoryToken(Coupon),
-          useValue: mockCouponRepository,
+          provide: TenantRepositoryProvider,
+          useValue: mockTenantRepositoryProvider,
         },
         {
           provide: CustomLoggerService,
@@ -41,7 +46,7 @@ describe('CouponsService', () => {
       ],
     }).compile();
 
-    service = module.get<CouponsService>(CouponsService);
+    service = await module.resolve<CouponsService>(CouponsService);
   });
 
   it('should be defined', () => {

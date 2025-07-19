@@ -72,7 +72,10 @@ describe('ItemIngredientsService', () => {
       ],
     }).compile();
 
-    service = module.get<ItemIngredientsService>(ItemIngredientsService);
+    // Use resolve() for request-scoped providers
+    service = await module.resolve<ItemIngredientsService>(
+      ItemIngredientsService,
+    );
     repository = module.get<Repository<ItemIngredient>>(
       getRepositoryToken(ItemIngredient),
     );

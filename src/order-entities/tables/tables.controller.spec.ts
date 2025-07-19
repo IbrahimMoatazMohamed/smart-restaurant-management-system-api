@@ -7,6 +7,7 @@ import { CustomLoggerService } from '../../logger/logger.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Reflector } from '@nestjs/core';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 
 describe('TablesController', () => {
   let controller: TablesController;
@@ -16,6 +17,22 @@ describe('TablesController', () => {
       controllers: [TablesController],
       providers: [
         TablesService,
+        {
+          provide: TenantRepositoryProvider,
+          useValue: {
+            getRepository: jest.fn().mockImplementation(() =>
+              Promise.resolve({
+                find: jest.fn().mockResolvedValue([]),
+                findOne: jest.fn().mockResolvedValue({}),
+                create: jest.fn().mockReturnValue({}),
+                save: jest.fn().mockResolvedValue({}),
+                update: jest.fn().mockResolvedValue({}),
+                delete: jest.fn().mockResolvedValue({}),
+                remove: jest.fn().mockResolvedValue({}),
+              }),
+            ),
+          },
+        },
         {
           provide: getRepositoryToken(Table),
           useValue: {

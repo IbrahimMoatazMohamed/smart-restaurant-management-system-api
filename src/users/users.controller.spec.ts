@@ -1,11 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { Users } from './entities/users.entity';
 import { CustomLoggerService } from '../logger/logger.service';
 import { ImageUploadHelper } from '../file-upload/helpers/image-upload.helper';
 import { RolesService } from '../roles/roles.service';
+import { TenantRepositoryProvider } from '../tenant/tenant-repository.provider';
 
 describe('UsersController', () => {
   let controller: UsersController;
@@ -24,6 +26,21 @@ describe('UsersController', () => {
             save: jest.fn(),
             update: jest.fn(),
             remove: jest.fn(),
+          },
+        },
+        {
+          provide: TenantRepositoryProvider,
+          useValue: {
+            getRepository: jest.fn().mockImplementation(() =>
+              Promise.resolve({
+                find: jest.fn(),
+                findOne: jest.fn(),
+                create: jest.fn(),
+                save: jest.fn(),
+                update: jest.fn(),
+                remove: jest.fn(),
+              }),
+            ),
           },
         },
         {
@@ -49,6 +66,19 @@ describe('UsersController', () => {
           useValue: {
             assignRoleToUser: jest.fn(),
             findById: jest.fn(),
+            findByName: jest.fn(),
+            create: jest.fn(),
+          },
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn().mockImplementation((key: string) => {
+              if (key === 'SUPER_ADMIN_API') {
+                return 'http://localhost:3030/api/super-admin';
+              }
+              return undefined;
+            }),
           },
         },
       ],

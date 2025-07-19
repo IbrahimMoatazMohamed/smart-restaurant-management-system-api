@@ -1,9 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CouponsController } from './coupons.controller';
 import { CouponsService } from './coupons.service';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Coupon } from './entities/coupon.entity';
 import { CustomLoggerService } from '../../logger/logger.service';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 
 describe('CouponsController', () => {
   let controller: CouponsController;
@@ -14,15 +13,19 @@ describe('CouponsController', () => {
       providers: [
         CouponsService,
         {
-          provide: getRepositoryToken(Coupon),
+          provide: TenantRepositoryProvider,
           useValue: {
-            create: jest.fn(),
-            save: jest.fn(),
-            find: jest.fn(),
-            findOne: jest.fn(),
-            preload: jest.fn(),
-            softDelete: jest.fn(),
-            restore: jest.fn(),
+            getRepository: jest.fn().mockImplementation(() =>
+              Promise.resolve({
+                create: jest.fn(),
+                save: jest.fn(),
+                find: jest.fn(),
+                findOne: jest.fn(),
+                preload: jest.fn(),
+                softDelete: jest.fn(),
+                restore: jest.fn(),
+              }),
+            ),
           },
         },
         {
