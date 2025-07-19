@@ -12,6 +12,7 @@ import { ItemsService } from '../../menu-entities/items/items.service';
 import { CouponsService } from '../coupons/coupons.service';
 import { TablesService } from '../tables/tables.service';
 import { CustomLoggerService } from '../../logger/logger.service';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 
 type MockRepository<T extends ObjectLiteral = any> = Partial<
   Record<keyof Repository<T>, jest.Mock>
@@ -26,6 +27,10 @@ const createMockRepository = (): MockRepository => ({
   softDelete: jest.fn(),
   restore: jest.fn(),
 });
+
+const mockTenantRepositoryProvider = {
+  getRepository: jest.fn().mockResolvedValue(createMockRepository()),
+};
 
 describe('OrdersController', () => {
   let controller: OrdersController;
@@ -100,6 +105,10 @@ describe('OrdersController', () => {
             debug: jest.fn(),
             logError: jest.fn(),
           },
+        },
+        {
+          provide: TenantRepositoryProvider,
+          useValue: mockTenantRepositoryProvider,
         },
       ],
     }).compile();

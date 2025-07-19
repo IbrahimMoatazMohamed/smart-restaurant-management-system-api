@@ -7,6 +7,7 @@ import { Repository } from 'typeorm';
 import { ItemsService } from '../items/items.service';
 import { IngredientsService } from '../ingredients/ingredients.service';
 import { CustomLoggerService } from '../../logger/logger.service';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 import { CreateItemIngredientDto } from './dto/create-item-ingredient.dto';
 import Measurement from '../ingredients/types/measurement.enum';
 
@@ -40,6 +41,10 @@ describe('ItemIngredientsService', () => {
     logError: jest.fn(),
   };
 
+  const mockTenantRepositoryProvider = {
+    getRepository: jest.fn().mockResolvedValue(mockRepository),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -59,6 +64,10 @@ describe('ItemIngredientsService', () => {
         {
           provide: CustomLoggerService,
           useValue: mockLoggerService,
+        },
+        {
+          provide: TenantRepositoryProvider,
+          useValue: mockTenantRepositoryProvider,
         },
       ],
     }).compile();

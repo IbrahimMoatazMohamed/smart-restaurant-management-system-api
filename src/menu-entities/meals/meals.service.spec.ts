@@ -1,13 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
 import { MealsService } from './meals.service';
 import { Meal } from './entities/meal.entity';
+import { MealItem } from '../meal-items/entities/meal-item.entity';
 import { ItemsService } from '../items/items.service';
 import { MenuCategoriesService } from '../menu-categories/menu-categories.service';
-import { MealItemsService } from '../meal-items/meal-items.service';
 import { CustomLoggerService } from '../../logger/logger.service';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 
-const mockRepository = () => ({
+const mockMealsRepository = {
   find: jest.fn(),
   findOne: jest.fn(),
   create: jest.fn(),
@@ -16,7 +16,16 @@ const mockRepository = () => ({
   softDelete: jest.fn(),
   restore: jest.fn(),
   delete: jest.fn(),
-});
+};
+
+const mockMealItemsRepository = {
+  find: jest.fn(),
+  findOne: jest.fn(),
+  create: jest.fn(),
+  save: jest.fn(),
+  delete: jest.fn(),
+  remove: jest.fn(),
+};
 
 const mockItemsService = {
   findOne: jest.fn(),
@@ -26,10 +35,16 @@ const mockMenuCategoriesService = {
   findOne: jest.fn(),
 };
 
-const mockMealItemsService = {
-  findByMealId: jest.fn(),
-  restore: jest.fn(),
-  removeAllByMealId: jest.fn(),
+const mockTenantRepositoryProvider = {
+  getRepository: jest.fn().mockImplementation((entity) => {
+    if (entity === Meal) {
+      return Promise.resolve(mockMealsRepository);
+    }
+    if (entity === MealItem) {
+      return Promise.resolve(mockMealItemsRepository);
+    }
+    return Promise.resolve({});
+  }),
 };
 
 const mockLoggerService = {
@@ -48,10 +63,12 @@ describe('MealsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MealsService,
-        { provide: getRepositoryToken(Meal), useFactory: mockRepository },
+        {
+          provide: TenantRepositoryProvider,
+          useValue: mockTenantRepositoryProvider,
+        },
         { provide: ItemsService, useValue: mockItemsService },
         { provide: MenuCategoriesService, useValue: mockMenuCategoriesService },
-        { provide: MealItemsService, useValue: mockMealItemsService },
         { provide: CustomLoggerService, useValue: mockLoggerService },
       ],
     }).compile();

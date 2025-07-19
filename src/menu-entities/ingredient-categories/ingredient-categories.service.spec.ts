@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { IngredientsService } from '../ingredients/ingredients.service';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 import { CreateIngredientCategoryDto } from './dto/create-ingredient-category.dto';
 // We'll use this in future tests
 // import { UpdateIngredientCategoryDto } from './dto/update-ingredient-category.dto';
@@ -47,6 +48,10 @@ describe('IngredientCategoriesService', () => {
     logError: jest.fn(),
   };
 
+  const mockTenantRepositoryProvider = {
+    getRepository: jest.fn().mockResolvedValue(mockRepository),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -62,6 +67,10 @@ describe('IngredientCategoriesService', () => {
         {
           provide: CustomLoggerService,
           useValue: mockLoggerService,
+        },
+        {
+          provide: TenantRepositoryProvider,
+          useValue: mockTenantRepositoryProvider,
         },
       ],
     }).compile();

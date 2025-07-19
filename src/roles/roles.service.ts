@@ -12,7 +12,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { CustomLoggerService } from '../logger/logger.service';
 import { handleError } from '../utils/error-handler.util';
-import { TenantRepositoryProvider } from 'src/tenant/tenant-repository.provider';
+import { TenantRepositoryProvider } from '../tenant/tenant-repository.provider';
 import { Users } from '../users/entities/users.entity';
 
 /**

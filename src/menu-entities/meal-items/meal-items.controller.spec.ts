@@ -9,6 +9,7 @@ import { CustomLoggerService } from '../../logger/logger.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Reflector } from '@nestjs/core';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 
 describe('MealItemsController', () => {
   let controller: MealItemsController;
@@ -61,6 +62,22 @@ describe('MealItemsController', () => {
           useValue: {
             get: jest.fn(),
             getAllAndOverride: jest.fn(),
+          },
+        },
+        {
+          provide: TenantRepositoryProvider,
+          useValue: {
+            getRepository: jest.fn().mockResolvedValue({
+              find: jest.fn().mockResolvedValue([]),
+              findOne: jest.fn().mockResolvedValue({}),
+              create: jest.fn().mockReturnValue({}),
+              save: jest.fn().mockResolvedValue({}),
+              update: jest.fn().mockResolvedValue({}),
+              delete: jest.fn().mockResolvedValue({}),
+              softDelete: jest.fn().mockResolvedValue({}),
+              restore: jest.fn().mockResolvedValue({}),
+              remove: jest.fn().mockResolvedValue({}),
+            }),
           },
         },
       ],

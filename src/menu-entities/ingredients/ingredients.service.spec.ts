@@ -3,6 +3,7 @@ import { IngredientsService } from './ingredients.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Ingredient } from './entities/ingredient.entity';
 import { CustomLoggerService } from '../../logger/logger.service';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 import { Repository } from 'typeorm';
 import { CreateIngredientDto } from './dto/create-ingredient.dto';
 import { UpdateQuantityDto } from './dto/update-quantity.dto';
@@ -34,6 +35,10 @@ describe('IngredientsService', () => {
     logError: jest.fn(),
   };
 
+  const mockTenantRepositoryProvider = {
+    getRepository: jest.fn().mockResolvedValue(mockRepository),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -45,6 +50,10 @@ describe('IngredientsService', () => {
         {
           provide: CustomLoggerService,
           useValue: mockLoggerService,
+        },
+        {
+          provide: TenantRepositoryProvider,
+          useValue: mockTenantRepositoryProvider,
         },
       ],
     }).compile();

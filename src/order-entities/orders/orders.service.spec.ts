@@ -10,6 +10,7 @@ import { ItemsService } from '../../menu-entities/items/items.service';
 import { CouponsService } from '../coupons/coupons.service';
 import { TablesService } from '../tables/tables.service';
 import { CustomLoggerService } from '../../logger/logger.service';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
 
 const mockRepository = () => ({
   find: jest.fn(),
@@ -64,6 +65,10 @@ const mockLoggerService = {
   logError: jest.fn(),
 };
 
+const mockTenantRepositoryProvider = {
+  getRepository: jest.fn().mockImplementation(() => Promise.resolve(mockRepository())),
+};
+
 describe('OrdersService', () => {
   let service: OrdersService;
   // Repository is injected but not used in tests yet
@@ -72,6 +77,7 @@ describe('OrdersService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OrdersService,
+        { provide: TenantRepositoryProvider, useValue: mockTenantRepositoryProvider },
         { provide: getRepositoryToken(Order), useFactory: mockRepository },
         {
           provide: getRepositoryToken(OrderMealItem),

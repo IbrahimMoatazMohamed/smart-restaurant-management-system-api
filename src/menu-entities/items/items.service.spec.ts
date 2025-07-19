@@ -1,12 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ItemsService } from './items.service';
 import { Item } from './entities/item.entity';
-import { ItemIngredientsService } from '../item-ingredients/item-ingredients.service';
 import { MenuCategoriesService } from '../menu-categories/menu-categories.service';
 import { IngredientsService } from '../ingredients/ingredients.service';
 import { CustomLoggerService } from '../../logger/logger.service';
+import { TenantRepositoryProvider } from '../../tenant/tenant-repository.provider';
+import { ItemIngredient } from '../item-ingredients/entities/item-ingredient.entity';
 
 type MockRepository = Partial<Record<keyof Repository<any>, jest.Mock>>;
 const createMockRepository = (): MockRepository => ({
@@ -28,15 +28,17 @@ describe('ItemsService', () => {
       providers: [
         ItemsService,
         {
-          provide: getRepositoryToken(Item),
-          useValue: createMockRepository(),
-        },
-        {
-          provide: ItemIngredientsService,
+          provide: TenantRepositoryProvider,
           useValue: {
-            upsert: jest.fn(),
-            findByItemId: jest.fn(),
-            removeByItemId: jest.fn(),
+            getRepository: jest.fn().mockImplementation((entity) => {
+              if (entity === Item) {
+                return Promise.resolve(createMockRepository());
+              }
+              if (entity === ItemIngredient) {
+                return Promise.resolve(createMockRepository());
+              }
+              return Promise.resolve(createMockRepository());
+            }),
           },
         },
         {
@@ -49,6 +51,7 @@ describe('ItemsService', () => {
           provide: IngredientsService,
           useValue: {
             findOne: jest.fn(),
+            decreaseQuantity: jest.fn(),
           },
         },
         {
