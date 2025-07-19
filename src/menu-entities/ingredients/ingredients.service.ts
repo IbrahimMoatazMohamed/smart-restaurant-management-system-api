@@ -435,12 +435,25 @@ export class IngredientsService {
 
     // Apply the operation (increase or decrease)
     const currentStock = Number(ingredient.stock) || 0;
-    ingredient.stock = parseFloat(
-      (isIncrease
-        ? currentStock + Number(amount)
-        : currentStock - Number(amount)
-      ).toFixed(4),
-    );
+
+    // Ensure we don't go below zero for stock when decreasing
+    let newStock: number;
+    if (isIncrease) {
+      newStock = currentStock + Number(amount);
+    } else {
+      // When decreasing, ensure we don't go below zero
+      newStock = Math.max(0, currentStock - Number(amount));
+
+      // Log warning if we're trying to decrease more than available
+      if (currentStock < Number(amount)) {
+        this.logger.warn(
+          `Attempting to decrease more than available stock for ingredient ID: ${id}. ` +
+            `Requested: ${Number(amount)}, Available: ${currentStock}. Setting stock to 0.`,
+        );
+      }
+    }
+
+    ingredient.stock = parseFloat(newStock.toFixed(4));
 
     const ingredientsRepository = await this.ingredientRepoPromise;
     const updatedIngredient = await ingredientsRepository.save(ingredient);
