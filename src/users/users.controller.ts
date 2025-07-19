@@ -384,16 +384,16 @@ export class UsersController {
       adminRole = await this.rolesService.findByName('admin');
     } catch {
       this.logger.log('Admin role not found, creating it');
+      await this.rolesService.create({
+        name: 'user',
+        description: 'User role',
+        permissions: {},
+      });
+
       adminRole = await this.rolesService.create({
         name: 'admin',
         description: 'Administrator role with full access',
-        permissions: {
-          users: ['create', 'read', 'update', 'delete'],
-          roles: ['create', 'read', 'update', 'delete'],
-          orders: ['read', 'update', 'delete'],
-          tables: ['create', 'read', 'update', 'delete'],
-          tableReservations: ['read', 'update', 'delete'],
-        },
+        permissions: {},
       });
     }
 
