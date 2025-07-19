@@ -300,11 +300,19 @@ export class IngredientsService {
       }
 
       if (!ingredient.category) {
+        this.logger.warn(`Ingredient with ID ${id} has no category`);
+        throw new BadRequestException(
+          `Cannot restore ingredient with ID ${id} because it has no category assigned`,
+        );
+      }
+
+      // Check if the category is soft deleted
+      if (ingredient.category.deletedAt) {
         this.logger.warn(
-          `Ingredient with ID ${id} has no category or category is deleted`,
+          `Ingredient with ID ${id} cannot be restored because its category (ID: ${ingredient.category.id}) is soft deleted`,
         );
         throw new BadRequestException(
-          `Cannot restore ingredient with ID ${id} because its category is deleted or missing`,
+          `Cannot restore ingredient with ID ${id} because its category "${ingredient.category.name}" is soft deleted. Please restore the category first.`,
         );
       }
 

@@ -262,6 +262,10 @@ export class IngredientsController {
   @ApiNotFoundResponse({
     description: 'Ingredient not found.',
   })
+  @ApiBadRequestResponse({
+    description:
+      'Cannot restore ingredient because its category is soft deleted or missing. Please restore the category first.',
+  })
   @ApiInternalServerErrorResponse({
     description: 'Failed to restore ingredient.',
   })
