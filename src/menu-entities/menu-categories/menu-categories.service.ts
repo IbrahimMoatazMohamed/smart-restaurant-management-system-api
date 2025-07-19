@@ -9,6 +9,8 @@ import { Repository } from 'typeorm';
 import { CreateMenuCategoryDto } from './dto/create-menu-category.dto';
 import { UpdateMenuCategoryDto } from './dto/update-menu-category.dto';
 import { MenuCategory } from './entities/menu-category.entity';
+import { Item } from '../items/entities/item.entity';
+import { Meal } from '../meals/entities/meal.entity';
 import { CustomLoggerService } from '../../logger/logger.service';
 import { handleDuplicateEntryError } from '../../utils/duplicate-entry-handler.util';
 import { handleError } from '../../utils/error-handler.util';
@@ -212,7 +214,7 @@ export class MenuCategoriesService {
   }
 
   /**
-   * Soft delete a menu category
+   * Soft delete a menu category with cascading soft delete for items and meals
    *
    * @param id Menu category ID
    */
@@ -222,12 +224,52 @@ export class MenuCategoriesService {
 
       const menuCategory = await this.findOne(id);
 
-      menuCategory.isActive = false;
       const menuCategoryRepository = await this.menuCategoryRepoPromise;
-      await menuCategoryRepository.save(menuCategory);
 
+      // Get all items and meals that belong to this category
+      const categoryWithRelations = await menuCategoryRepository.findOne({
+        where: { id },
+        relations: ['items', 'meals'],
+      });
+
+      if (categoryWithRelations) {
+        // Soft delete all items in this category
+        if (
+          categoryWithRelations.items &&
+          categoryWithRelations.items.length > 0
+        ) {
+          const itemRepository =
+            await this.tenantRepoProvider.getRepository(Item);
+          const itemIds = categoryWithRelations.items.map((item) => item.id);
+          await itemRepository.softDelete(itemIds);
+          this.logger.log(
+            `Soft deleted ${itemIds.length} items from category ${id}`,
+          );
+        }
+
+        // Soft delete all meals in this category
+        if (
+          categoryWithRelations.meals &&
+          categoryWithRelations.meals.length > 0
+        ) {
+          const mealRepository =
+            await this.tenantRepoProvider.getRepository(Meal);
+          const mealIds = categoryWithRelations.meals.map((meal) => meal.id);
+          await mealRepository.softDelete(mealIds);
+          this.logger.log(
+            `Soft deleted ${mealIds.length} meals from category ${id}`,
+          );
+        }
+      }
+
+      // Set category to inactive and soft delete it
+      menuCategory.isActive = false;
+      await menuCategoryRepository.save(menuCategory);
       await menuCategoryRepository.softDelete(id);
-      this.logger.log(`Menu category with ID ${id} soft deleted`);
+
+      this.logger.log(
+        `Menu category with ID ${id} and all its items/meals soft deleted`,
+      );
     } catch (err) {
       return handleError(
         err,
