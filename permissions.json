@@ -12,6 +12,5 @@
   "roles": ["create", "read", "update", "delete"],
   "ingredients": ["create", "read", "update", "delete"],
   "ingredientsCategories": ["create", "read", "update", "delete"],
-  "dashboard": ["read"],
-  "ervin": ["read", "update", "delete"]
+  "dashboard": ["read"]
 }
