@@ -99,7 +99,7 @@ export class TenantMiddleware implements NestMiddleware {
       }
 
       this.logger.error(
-        `Error validating client: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Error validating client: ${error instanceof Error ? error.message : 'Unknown error'} ${typeof error}`,
       );
 
       throw new InternalServerErrorException('Internal server error');
