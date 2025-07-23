@@ -4,12 +4,12 @@ import {
   BadRequestException,
   NotFoundException,
   ForbiddenException,
-  InternalServerErrorException,
 } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { CustomLoggerService } from '../logger/logger.service';
+import { handleError } from 'src/utils/error-handler.util';
 
 /**
  * Middleware to extract tenant ID from URL path
@@ -89,20 +89,17 @@ export class TenantMiddleware implements NestMiddleware {
 
     try {
       await this.validateClientStatus(tenantId);
-    } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof ForbiddenException ||
-        error instanceof BadRequestException
-      ) {
-        throw error;
-      }
-
-      this.logger.error(
-        `Error validating client: ${error instanceof Error ? error.message : 'Unknown error'} ${typeof error}`,
+    } catch (err) {
+      return handleError(
+        err,
+        [NotFoundException, ForbiddenException, BadRequestException],
+        `Failed to validate client status for tenant ID ${tenantId}`,
+        () => {
+          this.logger.logError(err, 'TenantMiddleware.validateClientStatus', {
+            tenantId,
+          });
+        },
       );
-
-      throw new InternalServerErrorException('Internal server error');
     }
 
     req.tenantId = tenantId;
