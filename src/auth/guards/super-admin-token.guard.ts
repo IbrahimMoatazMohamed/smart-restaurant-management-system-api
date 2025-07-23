@@ -32,7 +32,8 @@ export class SuperAdminTokenGuard implements CanActivate {
 
     try {
       const superAdminApiUrl =
-        this.configService.get<string>('SUPER_ADMIN_API');
+        this.configService.get<string>('SUPER_ADMIN_API') +
+        '/auth/validate-token';
       if (!superAdminApiUrl) {
         throw new UnauthorizedException('Super admin API is not configured');
       }

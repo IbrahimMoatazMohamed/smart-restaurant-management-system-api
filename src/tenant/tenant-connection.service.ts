@@ -1,6 +1,9 @@
 /* eslint-disable no-empty */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import axios from 'axios';
+import { CustomLoggerService } from '../logger/logger.service';
 import { DataSource } from 'typeorm';
 import { Role } from '../roles/entities/role.entity';
 import { Users } from '../users/entities/users.entity';
@@ -24,6 +27,13 @@ import { Table } from '../order-entities/tables/entities/table.entity';
 @Injectable()
 export class TenantConnectionService {
   private dataSources = new Map<string, DataSource>();
+
+  constructor(
+    private configService: ConfigService,
+    private logger: CustomLoggerService,
+  ) {
+    this.logger.setContext('TenantConnectionService');
+  }
 
   /**
    * Get or create a DataSource for a specific tenant
