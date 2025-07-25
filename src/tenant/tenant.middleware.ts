@@ -75,7 +75,7 @@ export class TenantMiddleware implements NestMiddleware {
     const tenantId = urlParts[2];
 
     // Skip validation for API docs paths
-    if (req.url.includes('/api/api-docs')) {
+    if (req.url.includes('/api/api-docs') || req.url.includes('/api/uploads')) {
       this.logger.log('Skipping tenant validation for API docs path');
       if (tenantId) {
         req.tenantId = tenantId;
