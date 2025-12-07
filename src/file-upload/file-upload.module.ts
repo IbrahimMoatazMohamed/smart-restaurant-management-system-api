@@ -1,35 +1,41 @@
 import { Module } from '@nestjs/common';
-import { FileUploadService } from './file-upload.service';
+import { ConfigModule } from '@nestjs/config';
 import { MulterModule } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import { FileUploadService } from './file-upload.service';
 import { ImageUploadHelper } from './helpers/image-upload.helper';
+import { CloudinaryConfig } from './config/cloudinary.config';
+import { CloudinaryUploadService } from './cloudinary-upload.service';
+import { UploadController } from './upload.controller';
 
 @Module({
   imports: [
+    ConfigModule,
     MulterModule.register({
-      storage: diskStorage({
-        destination: './uploads',
-        filename: (req, file, callback) => {
-          const uniqueSuffix = uuidv4();
-          const ext = extname(file.originalname);
-          const filename = `${uniqueSuffix}${ext}`;
-          callback(null, filename);
-        },
-      }),
+      // Configure multer to store files in memory for Cloudinary upload
+      storage: 'memory',
       fileFilter: (req, file, callback) => {
-        if (!file.originalname.match(/\.(jpg|jpeg|png|gif|webp)$/)) {
+        if (!file.originalname.match(/\.(jpg|jpeg|png|gif|webp|bmp|tiff)$/i)) {
           return callback(new Error('Only image files are allowed!'), false);
         }
         callback(null, true);
       },
       limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB max file size
+        fileSize: 10 * 1024 * 1024, // 10MB max file size (Cloudinary limit)
       },
     }),
   ],
-  providers: [FileUploadService, ImageUploadHelper],
-  exports: [FileUploadService, ImageUploadHelper],
+  controllers: [UploadController],
+  providers: [
+    FileUploadService,
+    ImageUploadHelper,
+    CloudinaryConfig,
+    CloudinaryUploadService,
+  ],
+  exports: [
+    FileUploadService,
+    ImageUploadHelper,
+    CloudinaryConfig,
+    CloudinaryUploadService,
+  ],
 })
 export class FileUploadModule {}
