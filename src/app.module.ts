@@ -2,8 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { LoggerModule } from './logger/logger.module';
 import { TenantModule } from './tenant/tenant.module';
-import { ServeStaticModule } from '@nestjs/serve-static';
-import { join } from 'path';
+// import { ServeStaticModule } from '@nestjs/serve-static';
+// import { join } from 'path';
 import { RolesModule } from './roles/roles.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
@@ -27,10 +27,11 @@ import { DashboardModule } from './dashboard/dashboard.module';
       isGlobal: true,
     }),
     TenantModule,
-    ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'uploads'),
-      serveRoot: '/api/uploads',
-    }),
+    // ServeStaticModule removed - using Cloudinary for file serving
+    // ServeStaticModule.forRoot({
+    //   rootPath: join(__dirname, '..', 'uploads'),
+    //   serveRoot: '/api/uploads',
+    // }),
     LoggerModule,
     UsersModule,
     AuthModule,

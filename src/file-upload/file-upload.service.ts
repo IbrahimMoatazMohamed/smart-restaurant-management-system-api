@@ -11,10 +11,21 @@ export class FileUploadService {
   constructor(private configService: ConfigService) {
     this.baseUrl =
       this.configService.get<string>('API_BASE_URL') || 'http://localhost:3030';
-    const uploadPath = join(process.cwd(), 'uploads');
-    if (!existsSync(uploadPath)) {
-      this.logger.log(`Creating uploads directory at ${uploadPath}`);
-      mkdirSync(uploadPath, { recursive: true });
+
+    // Only try to create uploads directory if file system is writable
+    try {
+      const uploadPath = join(process.cwd(), 'uploads');
+      if (!existsSync(uploadPath)) {
+        this.logger.log(`Creating uploads directory at ${uploadPath}`);
+        mkdirSync(uploadPath, { recursive: true });
+      }
+    } catch (error) {
+      // In serverless/read-only environments, we can't create directories
+      // This is fine since we're using Cloudinary for file uploads now
+      this.logger.warn(
+        'Cannot create uploads directory (read-only file system). Using Cloudinary for file uploads.',
+        error instanceof Error ? error.message : 'Unknown error',
+      );
     }
   }
 
