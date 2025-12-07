@@ -1,29 +1,28 @@
 import { applyDecorators, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
 
 /**
- * Decorator for handling profile image uploads
- * Configures the FileInterceptor with standard settings for profile images
+ * Decorator for handling image uploads with Cloudinary
+ * Configures the FileInterceptor with memory storage for Cloudinary uploads
  *
- * @param destination The destination folder within uploads directory
  * @returns Decorator function
  */
-export function ImageUpload(destination: string = '') {
+export function ImageUpload() {
   return applyDecorators(
     UseInterceptors(
       FileInterceptor('photo', {
-        storage: diskStorage({
-          destination: './uploads' + (destination ? '/' + destination : ''),
-          filename: (req, file, cb) => {
-            const randomName = Array(32)
-              .fill(null)
-              .map(() => Math.round(Math.random() * 16).toString(16))
-              .join('');
-            return cb(null, `${randomName}${extname(file.originalname)}`);
-          },
-        }),
+        storage: 'memory',
+        fileFilter: (req, file, callback) => {
+          if (
+            !file.originalname.match(/\.(jpg|jpeg|png|gif|webp|bmp|tiff)$/i)
+          ) {
+            return callback(new Error('Only image files are allowed!'), false);
+          }
+          callback(null, true);
+        },
+        limits: {
+          fileSize: 10 * 1024 * 1024, // 10MB max file size (Cloudinary limit)
+        },
       }),
     ),
   );

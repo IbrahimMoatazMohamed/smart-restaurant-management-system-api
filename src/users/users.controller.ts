@@ -284,10 +284,10 @@ export class UsersController {
   @ApiInternalServerErrorResponse({
     description: 'Failed to upload profile image.',
   })
-  @ImageUpload('')
+  @ImageUpload()
   @ApiConsumes('multipart/form-data')
   @ApiBody({
-    description: 'Update meal with optional image upload',
+    description: 'Upload profile image',
     schema: {
       type: 'object',
       properties: {
@@ -299,11 +299,16 @@ export class UsersController {
     },
   })
   async uploadProfileImage(
+    @Param('tenantId') tenantId: string,
     @MeOrAdminOrAuthorized('users.update') userId: number,
     @UploadedFile() photo: Express.Multer.File,
   ) {
     this.logger.log(`Uploading profile image for user with ID: ${userId}`);
-    const imageUrl = this.imageUploadHelper.extractImageUrl(photo);
+    const imageUrl = await this.imageUploadHelper.uploadImageAndGetUrl(
+      photo,
+      tenantId,
+      'users',
+    );
     return await this.usersService.updateProfileImage(userId, imageUrl);
   }
 

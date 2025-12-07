@@ -8,7 +8,6 @@ import {
   Delete,
   HttpStatus,
   Query,
-  UseInterceptors,
   UploadedFile,
   HttpCode,
   ParseIntPipe,
@@ -16,10 +15,8 @@ import {
   BadRequestException,
   UseGuards,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-import { FileUploadService } from '../../file-upload/file-upload.service';
+import { CloudinaryUploadService } from '../../file-upload/cloudinary-upload.service';
+import { ImageUpload } from '../../file-upload/decorators/image-upload.decorator';
 import {
   ApiTags,
   ApiOperation,
@@ -68,7 +65,7 @@ export class ItemsController {
   constructor(
     private readonly itemsService: ItemsService,
     private readonly logger: CustomLoggerService,
-    private readonly fileUploadService: FileUploadService,
+    private readonly cloudinaryUploadService: CloudinaryUploadService,
   ) {
     this.logger.setContext('ItemsController');
   }
@@ -86,20 +83,7 @@ export class ItemsController {
   @HttpCode(HttpStatus.CREATED)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Create a new item' })
-  @UseInterceptors(
-    FileInterceptor('photo', {
-      storage: diskStorage({
-        destination: './uploads',
-        filename: (req, file, cb) => {
-          const randomName = Array(32)
-            .fill(null)
-            .map(() => Math.round(Math.random() * 16).toString(16))
-            .join('');
-          return cb(null, `${randomName}${extname(file.originalname)}`);
-        },
-      }),
-    }),
-  )
+  @ImageUpload()
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'The item has been successfully created.',
@@ -120,14 +104,19 @@ export class ItemsController {
     type: CreateItemDto,
   })
   async create(
+    @Param('tenantId') tenantId: string,
     @Body() createItemDto: CreateItemDto,
     @UploadedFile() photo?: Express.Multer.File,
   ): Promise<ItemResponseDto> {
     this.logger.log(`Creating new item: ${createItemDto.name}`);
 
     if (photo) {
-      const photoUrl = this.fileUploadService.getFileUrl(photo.filename);
-      createItemDto.photo = photoUrl || '';
+      const result = await this.cloudinaryUploadService.uploadImage(
+        photo,
+        tenantId,
+        'menu-items',
+      );
+      createItemDto.photo = result.secure_url;
     } else {
       throw new BadRequestException('Photo is required');
     }
@@ -269,20 +258,7 @@ export class ItemsController {
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update an item' })
   @ApiParam({ name: 'id', description: 'Item ID' })
-  @UseInterceptors(
-    FileInterceptor('photo', {
-      storage: diskStorage({
-        destination: './uploads',
-        filename: (req, file, cb) => {
-          const randomName = Array(32)
-            .fill(null)
-            .map(() => Math.round(Math.random() * 16).toString(16))
-            .join('');
-          return cb(null, `${randomName}${extname(file.originalname)}`);
-        },
-      }),
-    }),
-  )
+  @ImageUpload()
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'The item has been successfully updated.',
@@ -306,6 +282,7 @@ export class ItemsController {
     type: UpdateItemDto,
   })
   async update(
+    @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Body() updateItemDto: UpdateItemDto,
     @UploadedFile() photo?: Express.Multer.File,
@@ -313,8 +290,12 @@ export class ItemsController {
     this.logger.log(`Updating item with ID: ${id}`);
 
     if (photo) {
-      const photoUrl = this.fileUploadService.getFileUrl(photo.filename);
-      updateItemDto.photo = photoUrl || undefined;
+      const result = await this.cloudinaryUploadService.uploadImage(
+        photo,
+        tenantId,
+        'menu-items',
+      );
+      updateItemDto.photo = result.secure_url;
     }
 
     return await this.itemsService.update(+id, updateItemDto);

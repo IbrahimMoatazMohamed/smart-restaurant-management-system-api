@@ -100,12 +100,17 @@ export class MealsController {
     type: CreateMealDto,
   })
   async create(
+    @Param('tenantId') tenantId: string,
     @Body() createMealDto: CreateMealDto,
     @UploadedFile() photo?: Express.Multer.File,
   ): Promise<MealResponseDto> {
     this.logger.log(`Creating new meal with name: ${createMealDto.name}`);
 
-    createMealDto.photo = this.imageUploadHelper.extractImageUrl(photo);
+    createMealDto.photo = await this.imageUploadHelper.uploadImageAndGetUrl(
+      photo,
+      tenantId,
+      'meals',
+    );
 
     return await this.mealsService.create(createMealDto);
   }
@@ -250,6 +255,7 @@ export class MealsController {
     type: UpdateMealDto,
   })
   async update(
+    @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Body() updateMealDto: UpdateMealDto,
     @UploadedFile() photo?: Express.Multer.File,
@@ -257,7 +263,11 @@ export class MealsController {
     this.logger.log(`Updating meal with ID: ${id}`);
     delete updateMealDto.photo;
 
-    updateMealDto.photo = this.imageUploadHelper.extractImageUrl(photo);
+    updateMealDto.photo = await this.imageUploadHelper.uploadImageAndGetUrl(
+      photo,
+      tenantId,
+      'meals',
+    );
 
     return await this.mealsService.update(+id, updateMealDto);
   }
