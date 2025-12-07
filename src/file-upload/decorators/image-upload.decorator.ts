@@ -1,5 +1,6 @@
 import { applyDecorators, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 
 /**
  * Decorator for handling image uploads with Cloudinary
@@ -11,7 +12,7 @@ export function ImageUpload() {
   return applyDecorators(
     UseInterceptors(
       FileInterceptor('photo', {
-        storage: 'memory',
+        storage: memoryStorage(),
         fileFilter: (req, file, callback) => {
           if (
             !file.originalname.match(/\.(jpg|jpeg|png|gif|webp|bmp|tiff)$/i)
